@@ -39,6 +39,7 @@ class Lexer {
 
     public void setData(String data) {
         this.data = data;
+        reset();
     }
 
     private boolean isSpace(String ch) {

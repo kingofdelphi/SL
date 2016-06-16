@@ -1,3 +1,4 @@
+CPATH = ".:commons.jar"
 prg:
-	javac parser.java main.java lexer.java
-	java Main
+	javac -cp $(CPATH) parser.java main.java lexer.java
+	java -cp $(CPATH) Main
