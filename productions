@@ -1,0 +1,26 @@
+precedence ranklist in ascending order
+---------------------------------------------------------------------------------
+1. ,
+2. =
+3. + -
+4. * /
+
+
+PRODUCTIONS, ($ is the end of input)
+---------------------------------------------------------------------------------
+
+expressionSet => expression {, expression}
+delimited by: $ )
+remark: any number of comma separated expressions with at least one expression
+
+expression => identifier=expression | simple_expression
+delimited by: $ ) ,
+
+simple_expression => T [ (+ | -) T]*
+delimited by: $ ) = ,
+
+T => F [ (* | /) F]*
+delimited by: - + , ) = $
+
+F => (+| -) F | identifier | constant | (expressionset)
+delimited by: just read one token, so delimited by all other tokens

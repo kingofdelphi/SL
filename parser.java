@@ -7,11 +7,6 @@ import java.io.*;
 import org.apache.commons.lang3.math.*;
 
 import static java.util.Arrays.asList;
-//rules
-//expressionSet => expression {, expression}, remark: any number of comma separated expressions with at least one expression
-//expression => T [ (+ | -) T]*
-//T => F [ (* | /) F]*
-//F => (+| -) F | identifier | constant | (expressionset)
 
 class Parser {
     private Lexer lexer;
@@ -19,7 +14,8 @@ class Parser {
     //Node represents a node in syntax tree
     static class Node {
         public enum Type {
-            BINARY_OPERATOR, IDENTIFIER, CONSTANT, UNARY_OPERATOR, COMMA
+            BINARY_OPERATOR, IDENTIFIER, CONSTANT, UNARY_OPERATOR, COMMA,
+            ASSIGN
         }
 
         public Type type;
@@ -44,13 +40,23 @@ class Parser {
         }
 
         public String evaluate(HashMap<String, Double> vars) {
-            if (this.type == Type.COMMA) {
+            if (this.type == Type.ASSIGN) {
+                String rvalue = this.children.get(1).evaluate(vars);
+                //System.out.println("lexeme of lvalue " + this.children.get(0).lexeme);
+                //System.out.println("rvalue " + rvalue);
+                vars.put(this.children.get(0).lexeme, NumberUtils.toDouble(rvalue));
+                return rvalue;
+            } else if (this.type == Type.COMMA) {
                 String result = "";
                 for (Node i : children) {
                     result = i.evaluate(vars);
                 }
                 return result;
             } else if (this.type == Type.IDENTIFIER) {
+                if (!vars.containsKey(this.lexeme)) {
+                    System.out.println("error: undefined identifier\n");
+                    return "";
+                }
                 return vars.get(this.lexeme).toString();
             } else if (this.type == Type.CONSTANT) {
                 return this.lexeme;
@@ -115,7 +121,8 @@ class Parser {
         while (!this.lexer.finished()) {
             String next = this.lexer.next();
             //lower precedence operator signals end of term
-            if (next.equals(",") || next.equals("+") || next.equals("-") || next.equals(")")) {
+            //
+            if (next.equals("=") || next.equals(",") || next.equals("+") || next.equals("-") || next.equals(")")) {
                 this.lexer.undo();
                 return r;
             }
@@ -144,20 +151,45 @@ class Parser {
         result.children.add(r);
         while (!this.lexer.finished()) {
             String next = this.lexer.next();
-            if (next.equals(",")) {
+            if (next.equals(")")) {
+                this.lexer.undo();
+                break;
+            } else if (next.equals(",")) {
                 Node n = expression();
                 if (n == null) return null;
                 result.children.add(n);
             } else {
-                this.lexer.undo();
-                break;
+                return null; //undefined symbol
             }
         }
         return result;
     }
     
-    //expression is a sequence of terms added or subtracted
     private Node expression() {
+        Node result =  simple_expression();
+        if (result == null) return null;
+        while (!this.lexer.finished()) {
+            String next = this.lexer.next();
+            if (next.equals("=")) {
+                if (result.type != Node.Type.IDENTIFIER) return null;
+            } else if (next.equals(")") || next.equals(",")) {
+                this.lexer.undo();
+                break;
+            }
+            else return null;
+            Node r = expression();
+            if (r == null) return null;
+            Node root = new Node(Node.Type.ASSIGN);
+            root.lexeme = "=";
+            root.children.add(result);
+            root.children.add(r);
+            result = root;
+        }
+        return result;
+    }
+
+    //simple expression is a sequence of terms added or subtracted
+    private Node simple_expression() {
         Node r = term();
         if (r == null) {
             System.out.println("invalid expression");
@@ -165,7 +197,7 @@ class Parser {
         }
         while (!this.lexer.finished()) {
             String next = this.lexer.next();
-            if (next.equals(",") || next.equals(")")) {
+            if (next.equals("=") || next.equals(",") || next.equals(")")) {
                 this.lexer.undo();
                 break;
             }
@@ -187,11 +219,6 @@ class Parser {
     public void main() {
         this.lexer = new Lexer();
         HashMap<String, Double> vars = new HashMap<String, Double>();
-        //vars.put("b", 2.0);
-        //vars.put("axcz", 10.0);
-        //vars.put("c", 3.0);
-        //vars.put("d", 3.0);
-        //vars.put("cdefg", 13.0);
         Scanner sc = new Scanner(System.in);
         while (true) {
             System.out.println("enter expression");
@@ -208,7 +235,7 @@ class Parser {
             Node syntax_tree = this.expressionSet();
             if (syntax_tree != null) {
                 System.out.println("Parse successful\n");
-                //syntax_tree.print();
+                syntax_tree.print();
                 System.out.println(syntax_tree.evaluate(vars));
             } else {
                 System.out.println("Parse failed\n");
