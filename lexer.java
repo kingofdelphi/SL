@@ -21,6 +21,7 @@ class Lexer {
         operators.add("-");
         operators.add("*");
         operators.add("/");
+        operators.add(",");
 
         alphabets.addAll(operators);
         alphabets.add("(");
