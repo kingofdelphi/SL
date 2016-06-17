@@ -2,12 +2,9 @@
 4 * 8
 a = 3
 
-if (a = 2) {
+if (a = b = 1 < 1) {
     a = a * 3
-        if (a < 10) {
-            hacker = 23
-        }
-    a=2 
+    if (a < 10) {
+        hacker = 23
+    }
 }
-
-if (2) a = 2*a

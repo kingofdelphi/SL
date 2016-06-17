@@ -45,6 +45,7 @@ class Parser {
 
         public String evaluate(HashMap<String, Double> vars) {
             if (this.type == Type.IF) {
+                System.out.println("node if" + this.children.get(0).type);
                 String cond = this.children.get(0).evaluate(vars);
                 if (NumberUtils.createDouble(cond) > 0) {
                     return this.children.get(1).evaluate(vars);
@@ -53,8 +54,8 @@ class Parser {
                 }
             } else if (this.type == Type.ASSIGN) {
                 String rvalue = this.children.get(1).evaluate(vars);
-                //System.out.println("lexeme of lvalue " + this.children.get(0).lexeme);
-                //System.out.println("rvalue " + rvalue);
+                System.out.println("lexeme of lvalue " + this.children.get(0).lexeme);
+                System.out.println("rvalue " + rvalue);
                 vars.put(this.children.get(0).lexeme, NumberUtils.toDouble(rvalue));
                 return rvalue;
             } else if (this.type == Type.COMMA) {
@@ -110,7 +111,7 @@ class Parser {
             r.children.add(factor());
             return r;
         } else if (factor.equals("(")) {
-            Node r =  expressionSet();
+            Node r =  goodSolver(0);
             if (r == null) return null;
             if (this.lexer.finished() || !this.lexer.next().equals(")")) {
                 System.out.println("missing )");
@@ -129,58 +130,6 @@ class Parser {
             r.lexeme = factor;
             return r;
         }
-    }
-
-    private Node term() {
-        Node r = factor();
-        if (r == null) return null;
-        //it will take up all factors until a lower precedence operator
-        //appears[+,-,)] i.e. eat up all tightly bound factors
-        while (!this.lexer.finished()) {
-            String next = this.lexer.next();
-            //lower precedence operator signals end of term
-            //
-            if (next.equals("\n") || next.equals("}") || next.equals("<") || next.equals("=") || next.equals(",") || next.equals("+") || next.equals("-") || next.equals(")")) {
-                this.lexer.undo();
-                return r;
-            }
-
-            if (!next.equals("*") && !next.equals("/")) {
-                System.out.println("error unexpected" + next + "|");
-                return null;
-            }
-
-            Node n = factor();
-            if (n == null) return null;
-            Node root = new Node(Node.Type.BINARY_OPERATOR);
-            root.lexeme = next;
-            root.children.add(r);
-            root.children.add(n);
-            r = root;
-        }
-        return r;
-    }
-    
-    //expression set
-    private Node expressionSet() {
-        Node result = new Node(Node.Type.COMMA);
-        Node r = expression();
-        if (r == null) return null;
-        result.children.add(r);
-        while (!this.lexer.finished()) {
-            String next = this.lexer.next();
-            if (next.equals("\n") || next.equals("}") || next.equals(")")) {
-                this.lexer.undo();
-                break;
-            } else if (next.equals(",")) {
-                Node n = expression();
-                if (n == null) return null;
-                result.children.add(n);
-            } else {
-                return null; //undefined symbol
-            }
-        }
-        return result;
     }
 
     private Node matchedBlock() {
@@ -239,9 +188,9 @@ class Parser {
             System.out.println("error, if statement no open braces");
             return null;
         }
-        Node cond = expression();
+        Node cond = goodSolver(0);
         if (cond == null) {
-            System.out.println("error, if block missing conditional statement");
+            System.out.println("error, if block conditional statement error");
             return null;
         }
         if (this.lexer.finished() || !this.lexer.next().equals(")")) {
@@ -252,9 +201,10 @@ class Parser {
         String s = this.lexer.next();
         this.lexer.undo();
 
-        if (s.equals("{")) return matchedBlock();
+        Node code;
+        if (s.equals("{")) code = matchedBlock();
+        else code = goodSolver(0);
 
-        Node code = expression();
         if (code == null) {
             System.out.println("error, if block missing end statement");
             return null;
@@ -265,87 +215,6 @@ class Parser {
         return result;
     }
 
-    private Node lexp() {
-        Node result =  simple_expression();
-        if (result == null) return null;
-        while (!this.lexer.finished()) {
-            String next = this.lexer.next();
-            if (next.equals("<")) {
-                Node r = simple_expression();
-                if (r == null) {
-                    System.out.println("error: missing rvalue for " + next);
-                    return null;
-                }
-                Node root = new Node(Node.Type.BINARY_OPERATOR);
-                root.lexeme = "<";
-                root.children.add(result);
-                root.children.add(r);
-                result = root;
-            } else if (next.equals("\n") || next.equals("}") || next.equals("=") || next.equals(")") || next.equals(",")) {
-                this.lexer.undo();
-                break;
-            } else return null;
-        }
-        return result;
-    }
-
-    private Node expression() {
-        Node result =  lexp();
-        if (result == null) return null;
-        while (!this.lexer.finished()) {
-            String next = this.lexer.next();
-            if (next.equals("=")) {
-                if (result.type != Node.Type.IDENTIFIER) {
-                    System.out.println("error: rvalue where lvalue was expected " + next);
-                    return null;
-                }
-            } else if (next.equals("\n") || next.equals("}") || next.equals(")") || next.equals(",")) {
-                this.lexer.undo();
-                break;
-            } else return null;
-
-            Node r = expression();
-            if (r == null) {
-                System.out.println("error: missing rvalue for " + next);
-                return null;
-            }
-            Node root = new Node(Node.Type.ASSIGN);
-            root.lexeme = "=";
-            root.children.add(result);
-            root.children.add(r);
-            result = root;
-        }
-        return result;
-    }
-
-    //simple expression is a sequence of terms added or subtracted
-    private Node simple_expression() {
-        Node r = term();
-        if (r == null) {
-            System.out.println("invalid expression");
-            return null;
-        }
-        while (!this.lexer.finished()) {
-            String next = this.lexer.next();
-            if (next.equals("\n") || next.equals("}") || next.equals("=") || next.equals(",") || next.equals(")") || next.equals("<")) {
-                this.lexer.undo();
-                break;
-            }
-            if (!next.equals("+") && !next.equals("-")) {
-                System.out.println("error unexpected |" + next + "|");
-                return null;
-            }
-            Node n = term();
-            if (n == null) return null;
-            Node root = new Node(Node.Type.BINARY_OPERATOR);
-            root.lexeme = next;
-            root.children.add(r);
-            root.children.add(n);
-            r = root;
-        }
-        return r;
-    }
-
     //interprets a single non empty statement 
     private Node interpreter() {
         String lex = this.lexer.next();
@@ -354,7 +223,126 @@ class Parser {
         if (lex.equals("if")) {
             return if_statement();
         }
-        return expressionSet();
+        return goodSolver(0);
+    }
+
+    //0 ,
+    //1 =
+    //
+    ArrayList<ArrayList<String>> leveldel;
+    ArrayList<ArrayList<String>> levelsep;
+
+    Parser() {
+        leveldel = new ArrayList<ArrayList<String>>();
+        levelsep = new ArrayList<ArrayList<String>>();
+
+        int levels = 5;
+        for (int i = 0; i < levels; ++i) {
+            leveldel.add(new ArrayList<String>());
+            levelsep.add(new ArrayList<String>());
+        }
+
+        levelsep.get(0).add(",");
+        levelsep.get(1).add("=");
+        levelsep.get(2).add("<");
+        levelsep.get(3).add("+");
+        levelsep.get(3).add("-");
+        levelsep.get(4).add("*");
+        levelsep.get(4).add("/");
+
+        //delimiters for the lowest level comma
+        leveldel.get(0).add("}");
+        leveldel.get(0).add(")");
+        leveldel.get(0).add("\n");
+
+        for (int i = 1; i < levels; ++i) {
+            leveldel.get(i).addAll(levelsep.get(i - 1));
+            leveldel.get(i).addAll(leveldel.get(i - 1));
+        }
+
+    }
+
+    private Node goodSolver(int level) {
+        if (level == 5) return factor();
+        //any level needs at least one item, 
+        //retrieve the first item of next level
+        Node result = goodSolver(level + 1);
+        if (level == 0) {
+            Node tmp = new Node(Node.Type.COMMA);
+            tmp.children.add(result);
+            result = tmp;
+        }
+        if (result == null) return null;
+        while (!this.lexer.finished()) {
+            String next = this.lexer.next();
+            boolean finish = false;
+            for (String del : this.leveldel.get(level)) {
+                if (next.equals(del)) {
+                    finish = true;
+                    break;
+                }
+            }
+            if (finish) {
+                this.lexer.undo();
+                break;
+            } else {
+                boolean donext = false;
+                for (String sep : this.levelsep.get(level)) {
+                    if (next.equals(sep)) {
+                        donext = true;
+                        break;
+                    }
+                }
+                if (donext) {
+                    if (level == 1) { //assignment
+                        if (result.type != Node.Type.IDENTIFIER) {
+                            System.out.println("error: rvalue where lvalue was expected " + next);
+                            return null;
+                        }
+                    }
+                    Node n;
+
+                    if (level == 1) {//assignment operator 
+                        //FOR RIGHT ASSOCIATIVITY WE USE
+                        //goodSolver(x) = symbol goodSolver(x)
+                        n = goodSolver(1);
+                    } else n = goodSolver(level + 1);
+
+                    if (n == null) return null;
+
+                    if (level == 0) { //comma level
+                        result.children.add(n);
+                    } else if (level == 1) { //assignment
+                        Node root = new Node(Node.Type.ASSIGN);
+                        root.lexeme = "=";
+                        root.children.add(result);
+                        root.children.add(n);
+                        result = root;
+                    } else if (level == 2) {//< comparison
+                        Node root = new Node(Node.Type.BINARY_OPERATOR);
+                        root.lexeme = "<";
+                        root.children.add(result);
+                        root.children.add(n);
+                        result = root;
+                    } else if (level == 3) { //+ -
+                        Node root = new Node(Node.Type.BINARY_OPERATOR);
+                        root.lexeme = next;
+                        root.children.add(result);
+                        root.children.add(n);
+                        result = root;
+                    } else if (level == 4) { //* /
+                        Node root = new Node(Node.Type.BINARY_OPERATOR);
+                        root.lexeme = next;
+                        root.children.add(result);
+                        root.children.add(n);
+                        result = root;
+                    }
+                } else {
+                    return null; //undefined symbol
+                }
+            }
+        }
+        return result;
     }
 
     private Node build() {
