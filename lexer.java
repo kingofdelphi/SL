@@ -24,6 +24,8 @@ class Lexer {
         operators.add("=");
         operators.add(",");
         operators.add("<");
+        operators.add("&");
+        operators.add("|");
 
         alphabets.addAll(operators);
         alphabets.add("(");
@@ -74,6 +76,20 @@ class Lexer {
                     else if (alphabets.contains(ch)) {
                         if (tok.isEmpty()) {
                             tok = ch; 
+                            if (tok.equals("=") || tok.equals("<") || tok.equals(">")) {
+                                if (pos + 1 < N && this.data.charAt(pos + 1) == '=') {
+                                    pos++;
+                                    tok += "=";
+                                }
+                            } else if (tok.equals("&") || tok.equals("|")) {
+                                if (pos + 1 < N) {
+                                    if (this.data.charAt(pos + 1) == tok.charAt(0)) {
+                                        pos++;
+                                        tok += tok;
+                                        System.out.println("token " + tok);
+                                    }
+                                }
+                            }
                         } else pos--;
                         break;
                     }

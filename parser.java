@@ -45,7 +45,7 @@ class Parser {
 
         public String evaluate(HashMap<String, Double> vars) {
             if (this.type == Type.IF) {
-                System.out.println("node if" + this.children.get(0).type);
+                //System.out.println("node if" + this.children.get(0).type);
                 String cond = this.children.get(0).evaluate(vars);
                 if (NumberUtils.createDouble(cond) > 0) {
                     return this.children.get(1).evaluate(vars);
@@ -54,8 +54,7 @@ class Parser {
                 }
             } else if (this.type == Type.ASSIGN) {
                 String rvalue = this.children.get(1).evaluate(vars);
-                System.out.println("lexeme of lvalue " + this.children.get(0).lexeme);
-                System.out.println("rvalue " + rvalue);
+                //System.out.println("lexeme of lvalue " + this.children.get(0).lexeme);
                 vars.put(this.children.get(0).lexeme, NumberUtils.toDouble(rvalue));
                 return rvalue;
             } else if (this.type == Type.COMMA) {
@@ -78,11 +77,19 @@ class Parser {
                 Double a = NumberUtils.createDouble(op1);
                 Double b = NumberUtils.createDouble(op2);
                 Double result = 0.0;
+
                 if (this.lexeme.equals("+")) result = a + b;
                 else if (this.lexeme.equals("-")) result = a - b;
                 else if (this.lexeme.equals("*")) result = a * b;
                 else if (this.lexeme.equals("/")) result = a / b;
                 else if (this.lexeme.equals("<")) result = (a < b ? 1.0 : 0.0);
+                else if (this.lexeme.equals("<=")) result = (a <= b ? 1.0 : 0.0);
+                else if (this.lexeme.equals(">")) result = (a > b ? 1.0 : 0.0);
+                else if (this.lexeme.equals(">=")) result = (a >= b ? 1.0 : 0.0);
+                else if (this.lexeme.equals("==")) result = (a == b ? 1.0 : 0.0);
+                else if (this.lexeme.equals("&&")) result = (a != 0 && b != 0 ? 1.0 : 0.0);
+                else if (this.lexeme.equals("||")) result = (a != 0 || b != 0 ? 1.0 : 0.0);
+
                 return result.toString();
             } else if (this.type == Type.UNARY_OPERATOR) {
                 String op1 = this.children.get(0).evaluate(vars);
@@ -147,17 +154,20 @@ class Parser {
         return result;
     }
 
+    private void printCurrent() {
+        int c = 0;
+        String tok = "";
+        while (!this.lexer.finished()) {
+            tok += "|" + this.lexer.next();
+            c++;
+        }
+        System.out.println(tok);
+        while (c-- > 0) this.lexer.undo();
+    }
+
     //matches a sequence of statements
     private Node block() {
         Node result = new Node(Node.Type.BLOCK);
-        //int c = 0;
-        //String tok = "";
-        //while (!this.lexer.finished()) {
-        //    tok += "|" + this.lexer.next();
-        //    c++;
-        //}
-        //System.out.println(tok);
-        //while (c-- > 0) this.lexer.undo();
 
         while (!this.lexer.finished()) {
             String nxt = this.lexer.next();
@@ -226,9 +236,6 @@ class Parser {
         return goodSolver(0);
     }
 
-    //0 ,
-    //1 =
-    //
     ArrayList<ArrayList<String>> leveldel;
     ArrayList<ArrayList<String>> levelsep;
 
@@ -236,19 +243,30 @@ class Parser {
         leveldel = new ArrayList<ArrayList<String>>();
         levelsep = new ArrayList<ArrayList<String>>();
 
-        int levels = 5;
+        int levels = 6;
         for (int i = 0; i < levels; ++i) {
             leveldel.add(new ArrayList<String>());
             levelsep.add(new ArrayList<String>());
         }
 
         levelsep.get(0).add(",");
+
         levelsep.get(1).add("=");
-        levelsep.get(2).add("<");
-        levelsep.get(3).add("+");
-        levelsep.get(3).add("-");
-        levelsep.get(4).add("*");
-        levelsep.get(4).add("/");
+
+        levelsep.get(2).add("||");
+        levelsep.get(2).add("&&");
+        
+        levelsep.get(3).add("<");
+        levelsep.get(3).add("<=");
+        levelsep.get(3).add(">");
+        levelsep.get(3).add(">=");
+        levelsep.get(3).add("==");
+
+        levelsep.get(4).add("+");
+        levelsep.get(4).add("-");
+
+        levelsep.get(5).add("*");
+        levelsep.get(5).add("/");
 
         //delimiters for the lowest level comma
         leveldel.get(0).add("}");
@@ -263,16 +281,16 @@ class Parser {
     }
 
     private Node goodSolver(int level) {
-        if (level == 5) return factor();
+        if (level == 6) return factor();
         //any level needs at least one item, 
         //retrieve the first item of next level
         Node result = goodSolver(level + 1);
+        if (result == null) return null;
         if (level == 0) {
             Node tmp = new Node(Node.Type.COMMA);
             tmp.children.add(result);
             result = tmp;
         }
-        if (result == null) return null;
         while (!this.lexer.finished()) {
             String next = this.lexer.next();
             boolean finish = false;
@@ -293,52 +311,40 @@ class Parser {
                         break;
                     }
                 }
-                if (donext) {
-                    if (level == 1) { //assignment
-                        if (result.type != Node.Type.IDENTIFIER) {
-                            System.out.println("error: rvalue where lvalue was expected " + next);
-                            return null;
-                        }
+                if (!donext) {
+                    System.out.println("invalid input");
+                    return null;
+                }
+                if (level == 1) { //assignment
+                    if (result.type != Node.Type.IDENTIFIER) {
+                        System.out.println("error: rvalue where lvalue was expected " + next);
+                        return null;
                     }
-                    Node n;
+                }
+                Node n;
 
-                    if (level == 1) {//assignment operator 
-                        //FOR RIGHT ASSOCIATIVITY WE USE
-                        //goodSolver(x) = symbol goodSolver(x)
-                        n = goodSolver(1);
-                    } else n = goodSolver(level + 1);
+                if (level == 1) {//assignment operator 
+                    //FOR RIGHT ASSOCIATIVITY WE USE
+                    //goodSolver(x) = symbol goodSolver(x)
+                    n = goodSolver(1);
+                } else n = goodSolver(level + 1);
 
-                    if (n == null) return null;
+                if (n == null) return null;
 
-                    if (level == 0) { //comma level
-                        result.children.add(n);
-                    } else if (level == 1) { //assignment
-                        Node root = new Node(Node.Type.ASSIGN);
-                        root.lexeme = "=";
-                        root.children.add(result);
-                        root.children.add(n);
-                        result = root;
-                    } else if (level == 2) {//< comparison
-                        Node root = new Node(Node.Type.BINARY_OPERATOR);
-                        root.lexeme = "<";
-                        root.children.add(result);
-                        root.children.add(n);
-                        result = root;
-                    } else if (level == 3) { //+ -
-                        Node root = new Node(Node.Type.BINARY_OPERATOR);
-                        root.lexeme = next;
-                        root.children.add(result);
-                        root.children.add(n);
-                        result = root;
-                    } else if (level == 4) { //* /
-                        Node root = new Node(Node.Type.BINARY_OPERATOR);
-                        root.lexeme = next;
-                        root.children.add(result);
-                        root.children.add(n);
-                        result = root;
-                    }
-                } else {
-                    return null; //undefined symbol
+                if (level == 0) { //comma level
+                    result.children.add(n);
+                } else if (level == 1) { //assignment
+                    Node root = new Node(Node.Type.ASSIGN);
+                    root.lexeme = next;
+                    root.children.add(result);
+                    root.children.add(n);
+                    result = root;
+                } else if (level >= 2 && level <= 5) {//< comparison
+                    Node root = new Node(Node.Type.BINARY_OPERATOR);
+                    root.lexeme = next;
+                    root.children.add(result);
+                    root.children.add(n);
+                    result = root;
                 }
             }
         }
