@@ -2,8 +2,11 @@
 //1. handle unary operator (+, -)
 //2. assignment statement
 //
+
 import java.util.*;
 import java.io.*;
+import java.nio.charset.Charset;
+
 import org.apache.commons.lang3.math.*;
 
 import static java.util.Arrays.asList;
@@ -13,9 +16,10 @@ class Parser {
 
     //Node represents a node in syntax tree
     static class Node {
+
         public enum Type {
             BINARY_OPERATOR, IDENTIFIER, CONSTANT, UNARY_OPERATOR, COMMA,
-            ASSIGN
+            ASSIGN, IF, BLOCK
         }
 
         public Type type;
@@ -40,7 +44,14 @@ class Parser {
         }
 
         public String evaluate(HashMap<String, Double> vars) {
-            if (this.type == Type.ASSIGN) {
+            if (this.type == Type.IF) {
+                String cond = this.children.get(0).evaluate(vars);
+                if (NumberUtils.createDouble(cond) > 0) {
+                    return this.children.get(1).evaluate(vars);
+                } else {
+                    return "void";
+                }
+            } else if (this.type == Type.ASSIGN) {
                 String rvalue = this.children.get(1).evaluate(vars);
                 //System.out.println("lexeme of lvalue " + this.children.get(0).lexeme);
                 //System.out.println("rvalue " + rvalue);
@@ -54,7 +65,7 @@ class Parser {
                 return result;
             } else if (this.type == Type.IDENTIFIER) {
                 if (!vars.containsKey(this.lexeme)) {
-                    System.out.println("error: undefined identifier\n");
+                    System.out.println("error: undefined identifier " + this.lexeme);
                     return "";
                 }
                 return vars.get(this.lexeme).toString();
@@ -70,6 +81,7 @@ class Parser {
                 else if (this.lexeme.equals("-")) result = a - b;
                 else if (this.lexeme.equals("*")) result = a * b;
                 else if (this.lexeme.equals("/")) result = a / b;
+                else if (this.lexeme.equals("<")) result = (a < b ? 1.0 : 0.0);
                 return result.toString();
             } else if (this.type == Type.UNARY_OPERATOR) {
                 String op1 = this.children.get(0).evaluate(vars);
@@ -78,7 +90,13 @@ class Parser {
                     a = -a;
                 }
                 return a.toString();
-            } else return "0";
+            } else if (this.type == Type.BLOCK) {
+                String res = "void";
+                for (Node i : this.children) {
+                    res = i.evaluate(vars);
+                }
+                return res;
+            } else return "need to process";
         }
 
     }
@@ -122,7 +140,7 @@ class Parser {
             String next = this.lexer.next();
             //lower precedence operator signals end of term
             //
-            if (next.equals("=") || next.equals(",") || next.equals("+") || next.equals("-") || next.equals(")")) {
+            if (next.equals("\n") || next.equals("}") || next.equals("<") || next.equals("=") || next.equals(",") || next.equals("+") || next.equals("-") || next.equals(")")) {
                 this.lexer.undo();
                 return r;
             }
@@ -151,7 +169,7 @@ class Parser {
         result.children.add(r);
         while (!this.lexer.finished()) {
             String next = this.lexer.next();
-            if (next.equals(")")) {
+            if (next.equals("\n") || next.equals("}") || next.equals(")")) {
                 this.lexer.undo();
                 break;
             } else if (next.equals(",")) {
@@ -164,21 +182,133 @@ class Parser {
         }
         return result;
     }
-    
-    private Node expression() {
+
+    private Node matchedBlock() {
+        if (this.lexer.finished()) return null;
+        String lex = this.lexer.next();
+        if (!lex.equals("{")) return null;
+        
+        Node result = block();
+        
+        if (result == null) return null;
+        if (this.lexer.finished() || !this.lexer.next().equals("}")) {
+            System.out.println("block statement unmatched");
+            return null;
+        }
+        return result;
+    }
+
+    //matches a sequence of statements
+    private Node block() {
+        Node result = new Node(Node.Type.BLOCK);
+        //int c = 0;
+        //String tok = "";
+        //while (!this.lexer.finished()) {
+        //    tok += "|" + this.lexer.next();
+        //    c++;
+        //}
+        //System.out.println(tok);
+        //while (c-- > 0) this.lexer.undo();
+
+        while (!this.lexer.finished()) {
+            String nxt = this.lexer.next();
+            if (nxt.equals("\n")) continue;
+            else this.lexer.undo();
+            if (nxt.equals("}")) break;
+            Node cond = interpreter();
+            if (cond == null) return null;
+            if (!this.lexer.finished()) {
+                nxt = this.lexer.next();
+                this.lexer.undo();
+                if (!nxt.equals("}") && !nxt.equals("\n")) {
+                    System.out.println("error: expected newline not found");
+                    return null;
+                }
+            }
+            result.children.add(cond);
+        }
+        return result;
+    }
+
+    private Node if_statement() {
+        if (this.lexer.finished()) return null;
+        String lex = this.lexer.next();
+        if (!lex.equals("if")) return null;
+
+        if (this.lexer.finished() || !this.lexer.next().equals("(")) {
+            System.out.println("error, if statement no open braces");
+            return null;
+        }
+        Node cond = expression();
+        if (cond == null) {
+            System.out.println("error, if block missing conditional statement");
+            return null;
+        }
+        if (this.lexer.finished() || !this.lexer.next().equals(")")) {
+            System.out.println("error, if statement no closing braces");
+            return null;
+        }
+
+        String s = this.lexer.next();
+        this.lexer.undo();
+
+        if (s.equals("{")) return matchedBlock();
+
+        Node code = expression();
+        if (code == null) {
+            System.out.println("error, if block missing end statement");
+            return null;
+        }
+        Node result = new Node(Node.Type.IF);
+        result.children.add(cond);
+        result.children.add(code);
+        return result;
+    }
+
+    private Node lexp() {
         Node result =  simple_expression();
         if (result == null) return null;
         while (!this.lexer.finished()) {
             String next = this.lexer.next();
-            if (next.equals("=")) {
-                if (result.type != Node.Type.IDENTIFIER) return null;
-            } else if (next.equals(")") || next.equals(",")) {
+            if (next.equals("<")) {
+                Node r = simple_expression();
+                if (r == null) {
+                    System.out.println("error: missing rvalue for " + next);
+                    return null;
+                }
+                Node root = new Node(Node.Type.BINARY_OPERATOR);
+                root.lexeme = "<";
+                root.children.add(result);
+                root.children.add(r);
+                result = root;
+            } else if (next.equals("\n") || next.equals("}") || next.equals("=") || next.equals(")") || next.equals(",")) {
                 this.lexer.undo();
                 break;
-            }
-            else return null;
+            } else return null;
+        }
+        return result;
+    }
+
+    private Node expression() {
+        Node result =  lexp();
+        if (result == null) return null;
+        while (!this.lexer.finished()) {
+            String next = this.lexer.next();
+            if (next.equals("=")) {
+                if (result.type != Node.Type.IDENTIFIER) {
+                    System.out.println("error: rvalue where lvalue was expected " + next);
+                    return null;
+                }
+            } else if (next.equals("\n") || next.equals("}") || next.equals(")") || next.equals(",")) {
+                this.lexer.undo();
+                break;
+            } else return null;
+
             Node r = expression();
-            if (r == null) return null;
+            if (r == null) {
+                System.out.println("error: missing rvalue for " + next);
+                return null;
+            }
             Node root = new Node(Node.Type.ASSIGN);
             root.lexeme = "=";
             root.children.add(result);
@@ -197,7 +327,7 @@ class Parser {
         }
         while (!this.lexer.finished()) {
             String next = this.lexer.next();
-            if (next.equals("=") || next.equals(",") || next.equals(")")) {
+            if (next.equals("\n") || next.equals("}") || next.equals("=") || next.equals(",") || next.equals(")") || next.equals("<")) {
                 this.lexer.undo();
                 break;
             }
@@ -216,9 +346,59 @@ class Parser {
         return r;
     }
 
+    //interprets a single non empty statement 
+    private Node interpreter() {
+        String lex = this.lexer.next();
+        this.lexer.undo();
+
+        if (lex.equals("if")) {
+            return if_statement();
+        }
+        return expressionSet();
+    }
+
+    private Node build() {
+        Node r = block();
+        if (!lexer.finished()) {
+            System.out.println("error: extra input");
+            return null;
+        }
+        return r;
+    }
+
+
     public void main() {
         this.lexer = new Lexer();
         HashMap<String, Double> vars = new HashMap<String, Double>();
+        try {
+            File file = new File("program");
+            Scanner input = new Scanner(file);
+            String program = "";
+            while (input.hasNextLine()) {
+                String line = input.nextLine();
+                program += line + "\n";
+            }
+            this.lexer.setData(program);
+            this.lexer.process();
+            String s = "";
+            while (!this.lexer.finished()) {
+                s += (s.length() > 0 ? ", " : "") + this.lexer.next();
+            }
+            System.out.println(s);
+            this.lexer.reset();
+            Node syntax_tree = this.build();
+            if (syntax_tree != null) {
+                System.out.println("Parse successful");
+                //syntax_tree.print();
+                System.out.println("Result: " + syntax_tree.evaluate(vars));
+            } else {
+                System.out.println("Parse failed");
+            }
+            input.close();
+
+        } catch (Exception ex) {
+            ex.printStackTrace();
+        }
         Scanner sc = new Scanner(System.in);
         while (true) {
             System.out.println("enter expression");
@@ -229,16 +409,15 @@ class Parser {
             while (!this.lexer.finished()) {
                 s += (s.length() > 0 ? ", " : "") + this.lexer.next();
             }
-            System.out.println(s);
+            //System.out.println(s);
             this.lexer.reset();
-            System.out.println(expr);
-            Node syntax_tree = this.expressionSet();
+            Node syntax_tree = this.build();
             if (syntax_tree != null) {
-                System.out.println("Parse successful\n");
-                syntax_tree.print();
-                System.out.println(syntax_tree.evaluate(vars));
+                System.out.println("Parse successful");
+                //syntax_tree.print();
+                System.out.println("Result: " + syntax_tree.evaluate(vars));
             } else {
-                System.out.println("Parse failed\n");
+                System.out.println("Parse failed");
             }
         }
     }

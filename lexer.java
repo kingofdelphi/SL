@@ -23,10 +23,14 @@ class Lexer {
         operators.add("/");
         operators.add("=");
         operators.add(",");
+        operators.add("<");
 
         alphabets.addAll(operators);
         alphabets.add("(");
         alphabets.add(")");
+        alphabets.add("{");
+        alphabets.add("}");
+        alphabets.add("\n");
     }
 
     //reset the current lexeme position
