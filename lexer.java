@@ -32,6 +32,7 @@ class Lexer {
         alphabets.add(")");
         alphabets.add("{");
         alphabets.add("}");
+        alphabets.add(";");
         alphabets.add("\n");
     }
 

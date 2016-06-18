@@ -1,16 +1,26 @@
 2 * 3
 4 * 8
 a = 3
+pow = 1
 
 if (a = b = 1 <= 1) {
+
     a = a * 3
 
     if (a < 10) {
         hacker = 23
     }
 
+    for (1;a<=100000; a = a + 1) {
+        pow = pow + a
+    }
+
     x = 3
+
     z = 12
+
     y = 3
+
 }
 y
+pow

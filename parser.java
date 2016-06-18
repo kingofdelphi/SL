@@ -19,7 +19,7 @@ class Parser {
 
         public enum Type {
             BINARY_OPERATOR, IDENTIFIER, CONSTANT, UNARY_OPERATOR, COMMA,
-            ASSIGN, IF, BLOCK
+            ASSIGN, IF, BLOCK, FOR
         }
 
         public Type type;
@@ -104,6 +104,19 @@ class Parser {
                     res = i.evaluate(vars);
                 }
                 return res;
+            } else if (this.type == Type.FOR) {
+                if (this.children.get(0) != null) this.children.get(0).evaluate(vars); //seed statement
+                while (true) {
+                    String cond = this.children.get(1) == null ? "1.0" : this.children.get(1).evaluate(vars); 
+                    if (NumberUtils.createDouble(cond) > 0) {
+                        this.children.get(3).evaluate(vars); //for execution code
+                        if (this.children.get(2) != null) 
+                            this.children.get(2).evaluate(vars); //for post execution
+                    } else {
+                        break;
+                    }
+                }
+                return "void";
             } else return "need to process";
         }
 
@@ -189,6 +202,91 @@ class Parser {
         return result;
     }
 
+    private Node for_statement() {
+        if (this.lexer.finished()) return null;
+        String lex = this.lexer.next();
+        if (!lex.equals("for")) return null;
+
+        if (this.lexer.finished() || !this.lexer.next().equals("(")) {
+            System.out.println("error, for statement no open braces");
+            return null;
+        }
+        
+        String s = this.lexer.next();
+        lexer.undo();
+
+        Node a;
+        if (s.equals(";")) a = null; 
+        else {
+            a = goodSolver(0);
+            if (a == null) {
+                System.out.println("error, for statement error");
+                return null;
+            }
+        }
+
+        if (this.lexer.finished() || !this.lexer.next().equals(";")) {
+            System.out.println("error, for seed statement missing ;");
+            return null;
+        }
+
+        s = this.lexer.next();
+        lexer.undo();
+
+        Node b;
+        if (s.equals(";")) b = null; 
+        else {
+            b = goodSolver(0);
+
+            if (b == null) {
+                System.out.println("error, for conditional statement error");
+                return null;
+            }
+        }
+
+        if (this.lexer.finished() || !this.lexer.next().equals(";")) {
+            System.out.println("error, for conditional statement missing ;");
+            return null;
+        }
+
+        s = this.lexer.next();
+        lexer.undo();
+
+        Node c;
+        if (s.equals(")")) c = null; 
+        else {
+            c = goodSolver(0);
+
+            if (c == null) {
+                System.out.println("error, for post conditional statement error");
+                return null;
+            }
+        }
+
+        if (this.lexer.finished() || !this.lexer.next().equals(")")) {
+            System.out.println("error, for statement no closing braces");
+            return null;
+        }
+
+        s = this.lexer.next();
+        this.lexer.undo();
+
+        Node code;
+        if (s.equals("{")) code = matchedBlock();
+        else code = goodSolver(0);
+
+        if (code == null) {
+            System.out.println("error, for block statement error");
+            return null;
+        }
+        Node result = new Node(Node.Type.FOR);
+        result.children.add(a);
+        result.children.add(b);
+        result.children.add(c);
+        result.children.add(code);
+        return result;
+    }
+
     private Node if_statement() {
         if (this.lexer.finished()) return null;
         String lex = this.lexer.next();
@@ -232,6 +330,8 @@ class Parser {
 
         if (lex.equals("if")) {
             return if_statement();
+        } else if (lex.equals("for")) {
+            return for_statement();
         }
         return goodSolver(0);
     }
@@ -272,6 +372,7 @@ class Parser {
         leveldel.get(0).add("}");
         leveldel.get(0).add(")");
         leveldel.get(0).add("\n");
+        leveldel.get(0).add(";");
 
         for (int i = 1; i < levels; ++i) {
             leveldel.get(i).addAll(levelsep.get(i - 1));
@@ -403,7 +504,7 @@ class Parser {
             while (!this.lexer.finished()) {
                 s += (s.length() > 0 ? ", " : "") + this.lexer.next();
             }
-            //System.out.println(s);
+            System.out.println(s);
             this.lexer.reset();
             Node syntax_tree = this.build();
             if (syntax_tree != null) {
