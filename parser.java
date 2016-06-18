@@ -1,7 +1,7 @@
 //Todo Next
-//1. handle unary operator (+, -)
-//2. assignment statement
-//
+//1. function parameters name validity
+//2. scoping
+//3. typing
 
 import java.util.*;
 import java.io.*;
@@ -13,13 +13,12 @@ import static java.util.Arrays.asList;
 
 class Parser {
     private Lexer lexer;
-
     //Node represents a node in syntax tree
     static class Node {
 
         public enum Type {
             BINARY_OPERATOR, IDENTIFIER, CONSTANT, UNARY_OPERATOR, COMMA,
-            ASSIGN, IF, BLOCK, FOR
+            ASSIGN, IF, BLOCK, FOR, CONSTANT_STRING, FUNCTION_CREATE, FUNCTION_PARAM, FUNCTION_CALL
         }
 
         public Type type;
@@ -43,37 +42,39 @@ class Parser {
             }
         }
 
-        public String evaluate(HashMap<String, Double> vars) {
-            if (this.type == Type.IF) {
+        public String evaluate(HashMap<String, String> vars, HashMap<String, Node> fxnlist) {
+ 
+            if (this.type == Type.FUNCTION_CREATE) {
+                fxnlist.put(this.lexeme, this);
+                return "void";
+            } else if (this.type == Type.IF) {
                 //System.out.println("node if" + this.children.get(0).type);
-                String cond = this.children.get(0).evaluate(vars);
+                String cond = this.children.get(0).evaluate(vars, fxnlist);
                 if (NumberUtils.createDouble(cond) > 0) {
-                    return this.children.get(1).evaluate(vars);
+                    return this.children.get(1).evaluate(vars, fxnlist);
                 } else {
                     return "void";
                 }
             } else if (this.type == Type.ASSIGN) {
-                String rvalue = this.children.get(1).evaluate(vars);
+                String rvalue = this.children.get(1).evaluate(vars, fxnlist);
                 //System.out.println("lexeme of lvalue " + this.children.get(0).lexeme);
-                vars.put(this.children.get(0).lexeme, NumberUtils.toDouble(rvalue));
+                vars.put(this.children.get(0).lexeme, rvalue);
                 return rvalue;
             } else if (this.type == Type.COMMA) {
                 String result = "";
                 for (Node i : children) {
-                    result = i.evaluate(vars);
+                    result = i.evaluate(vars, fxnlist);
                 }
                 return result;
             } else if (this.type == Type.IDENTIFIER) {
-                if (!vars.containsKey(this.lexeme)) {
-                    System.out.println("error: undefined identifier " + this.lexeme);
-                    return "";
-                }
-                return vars.get(this.lexeme).toString();
+                return vars.get(this.lexeme);
             } else if (this.type == Type.CONSTANT) {
                 return this.lexeme;
+            } else if (this.type == Type.CONSTANT_STRING) {
+                return this.lexeme;
             } else if (this.type == Type.BINARY_OPERATOR) {
-                String op1 = this.children.get(0).evaluate(vars);
-                String op2 = this.children.get(1).evaluate(vars);
+                String op1 = this.children.get(0).evaluate(vars, fxnlist);
+                String op2 = this.children.get(1).evaluate(vars, fxnlist);
                 Double a = NumberUtils.createDouble(op1);
                 Double b = NumberUtils.createDouble(op2);
                 Double result = 0.0;
@@ -92,7 +93,7 @@ class Parser {
 
                 return result.toString();
             } else if (this.type == Type.UNARY_OPERATOR) {
-                String op1 = this.children.get(0).evaluate(vars);
+                String op1 = this.children.get(0).evaluate(vars, fxnlist);
                 Double a = NumberUtils.createDouble(op1);
                 if (this.lexeme.equals("-")) {
                     a = -a;
@@ -101,24 +102,44 @@ class Parser {
             } else if (this.type == Type.BLOCK) {
                 String res = "void";
                 for (Node i : this.children) {
-                    res = i.evaluate(vars);
+                    res = i.evaluate(vars, fxnlist);
                 }
                 return res;
             } else if (this.type == Type.FOR) {
-                if (this.children.get(0) != null) this.children.get(0).evaluate(vars); //seed statement
+                if (this.children.get(0) != null) this.children.get(0).evaluate(vars, fxnlist); //seed statement
                 while (true) {
-                    String cond = this.children.get(1) == null ? "1.0" : this.children.get(1).evaluate(vars); 
+                    String cond = this.children.get(1) == null ? "1.0" : this.children.get(1).evaluate(vars, fxnlist); 
                     if (NumberUtils.createDouble(cond) > 0) {
-                        this.children.get(3).evaluate(vars); //for execution code
+                        this.children.get(3).evaluate(vars, fxnlist); //for execution code
                         if (this.children.get(2) != null) 
-                            this.children.get(2).evaluate(vars); //for post execution
+                            this.children.get(2).evaluate(vars, fxnlist); //for post execution
                     } else {
                         break;
                     }
                 }
                 return "void";
+            } else if (this.type == Type.FUNCTION_CALL) {
+                if (this.lexeme.equals("print")) {
+                    //inbuilt function call
+                    //todo: verify argument size
+                    String s = this.children.get(0).evaluate(vars, fxnlist);
+                    if (s.length() > 0 && s.charAt(0) == '"') {
+                        s = s.substring(1, s.length() - 1);
+                    }
+                    System.out.print(s);
+                } else {
+                    Node function = fxnlist.get(this.lexeme);
+                    int N = function.children.size();
+                    for (int i = 0; i + 1 < N; ++i) {
+                        String eval = this.children.get(i).evaluate(vars, fxnlist);
+                        vars.put(function.children.get(i).lexeme, eval);
+                    }
+                    function.children.get(N - 1).evaluate(vars, fxnlist);
+                }
+                return "void";
             } else return "need to process";
         }
+
 
     }
 
@@ -143,11 +164,52 @@ class Parser {
             return null;
         } else { //factor is identifier
             Node.Type type;
-            if (NumberUtils.isNumber(factor)) {
+            boolean fxn = false;
+            if (factor.charAt(0) == '\"') {
+                type = Node.Type.CONSTANT_STRING;
+            } else if (NumberUtils.isNumber(factor)) {
                 type = Node.Type.CONSTANT;
-            } else type = Node.Type.IDENTIFIER;
+            } else {
+                type = Node.Type.IDENTIFIER;
+                if (!this.lexer.finished()) {
+                    String nxt = this.lexer.next();
+                    this.lexer.undo();
+                    if (nxt.equals("(")) { // a function call
+                        fxn = true;
+                    }
+                }
+            }
             Node r = new Node(type);
             r.lexeme = factor;
+            if (fxn) {
+                this.lexer.next();
+                Node res = new Node(Node.Type.FUNCTION_CALL);
+                res.lexeme = factor;
+                boolean first = true;
+                while (!this.lexer.finished()) {
+                    String nxt = this.lexer.next();
+                    this.lexer.undo();
+                    if (nxt.equals(")")) { // 
+                        break;
+                    }
+                    if (!first && !this.lexer.next().equals(",")) {
+                        System.out.println("expected comma not found");
+                        return null;
+                    }
+                    Node n = goodSolver(1);
+                    if (n == null) {
+                        System.out.println("error parsing function argument");
+                        return null;
+                    }
+                    res.children.add(n);
+                    first = false;
+                }
+                if (this.lexer.finished() || !this.lexer.next().equals(")")) {
+                    System.out.println("error: function invoke no closing brace");
+                    return null;
+                }
+                r = res;
+            }
             return r;
         }
     }
@@ -323,12 +385,64 @@ class Parser {
         return result;
     }
 
+    private Node function_statement() {
+        if (this.lexer.finished()) return null;
+        String lex = this.lexer.next();
+        if (!lex.equals("function")) return null;
+
+        if (this.lexer.finished()) {
+            System.out.println("error, missing function name");
+            return null;
+        } 
+        String s = this.lexer.next();
+        //todo: perform function name validity
+        
+        if (this.lexer.finished() || !this.lexer.next().equals("(")) {
+            System.out.println("error, function open braces missing");
+            return null;
+        }
+
+        Node fnc = new Node(Node.Type.FUNCTION_CREATE);
+        fnc.lexeme = s; //the function name
+        boolean first = true;
+        while (!this.lexer.finished()) {
+            s = this.lexer.next();
+            this.lexer.undo();
+            if (s.equals(")")) {
+                break;
+            }
+            if (!first && !this.lexer.next().equals(",")) {
+                System.out.println("expected comma not found");
+                return null;
+            }
+            //todo: perform parameter name validity
+            Node n = new Node(Node.Type.FUNCTION_PARAM);
+            n.lexeme = this.lexer.next();
+            fnc.children.add(n);
+            first = false;
+        }
+
+        if (this.lexer.finished() || !this.lexer.next().equals(")")) {
+            System.out.println("error, function no closing braces");
+            return null;
+        }
+
+        Node blk = matchedBlock();
+        if (blk == null) {
+            System.out.println("error, parsing function block");
+            return null;
+        }
+        fnc.children.add(blk);
+        return fnc;
+    }
+
     //interprets a single non empty statement 
     private Node interpreter() {
         String lex = this.lexer.next();
         this.lexer.undo();
-
-        if (lex.equals("if")) {
+        if (lex.equals("function")) {
+            return function_statement();
+        } else if (lex.equals("if")) {
             return if_statement();
         } else if (lex.equals("for")) {
             return for_statement();
@@ -464,7 +578,8 @@ class Parser {
 
     public void main() {
         this.lexer = new Lexer();
-        HashMap<String, Double> vars = new HashMap<String, Double>();
+        HashMap<String, String> vars = new HashMap<String, String>();
+        HashMap<String, Node> fxnlist = new HashMap<String, Node>();
         try {
             File file = new File("program");
             Scanner input = new Scanner(file);
@@ -474,32 +589,41 @@ class Parser {
                 program += line + "\n";
             }
             this.lexer.setData(program);
-            this.lexer.process();
-            String s = "";
-            while (!this.lexer.finished()) {
-                s += (s.length() > 0 ? ", " : "") + this.lexer.next();
-            }
-            System.out.println(s);
-            this.lexer.reset();
-            Node syntax_tree = this.build();
-            if (syntax_tree != null) {
-                System.out.println("Parse successful");
-                //syntax_tree.print();
-                System.out.println("Result: " + syntax_tree.evaluate(vars));
+            if (!this.lexer.process()) {
+                System.out.println("parse failed");
             } else {
-                System.out.println("Parse failed");
+                String s = "";
+                while (!this.lexer.finished()) {
+                    s += (s.length() > 0 ? ", " : "") + this.lexer.next();
+                }
+                System.out.println(s);
+                this.lexer.reset();
+                Node syntax_tree = this.build();
+                if (syntax_tree != null) {
+                    System.out.println("Parse successful");
+                    //syntax_tree.print();
+                    System.out.println("Result: " + syntax_tree.evaluate(vars, fxnlist));
+                } else {
+                    System.out.println("Parse failed");
+                }
             }
             input.close();
 
         } catch (Exception ex) {
             ex.printStackTrace();
         }
+        //for (String key : fxnlist.keySet()) {
+        //    System.out.println(key);
+        //}
         Scanner sc = new Scanner(System.in);
         while (true) {
             System.out.println("enter expression");
             String expr = sc.nextLine();
             this.lexer.setData(expr);
-            this.lexer.process();
+            if (!this.lexer.process()) {
+                System.out.println("Error: parse failed");
+                continue;
+            }
             String s = "";
             while (!this.lexer.finished()) {
                 s += (s.length() > 0 ? ", " : "") + this.lexer.next();
@@ -510,7 +634,7 @@ class Parser {
             if (syntax_tree != null) {
                 System.out.println("Parse successful");
                 //syntax_tree.print();
-                System.out.println("Result: " + syntax_tree.evaluate(vars));
+                System.out.println("Result: " + syntax_tree.evaluate(vars, fxnlist));
             } else {
                 System.out.println("Parse failed");
             }

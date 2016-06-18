@@ -34,6 +34,7 @@ class Lexer {
         alphabets.add("}");
         alphabets.add(";");
         alphabets.add("\n");
+        alphabets.add("\"");
     }
 
     //reset the current lexeme position
@@ -63,7 +64,7 @@ class Lexer {
         return this.lexemes.get(this.next_lexeme++);
     }
 
-    public void process() {
+    public boolean process() {
         int pos = 0;
         ArrayList<Token> tokens = new ArrayList<Token>();
         this.lexemes = new ArrayList<String>();
@@ -71,36 +72,69 @@ class Lexer {
         while (pos < N) {
             if (!this.isSpace(String.valueOf(data.charAt(pos)))) {
                 String tok = "";
-                while (pos < N) {
-                    String ch = String.valueOf(this.data.charAt(pos));
-                    if (this.isSpace(ch)) break;
-                    else if (alphabets.contains(ch)) {
-                        if (tok.isEmpty()) {
-                            tok = ch; 
-                            if (tok.equals("=") || tok.equals("<") || tok.equals(">")) {
-                                if (pos + 1 < N && this.data.charAt(pos + 1) == '=') {
-                                    pos++;
-                                    tok += "=";
+                if (data.charAt(pos) == '"') {
+                    tok += "\"";
+                    boolean ok = false;
+                    while (++pos < N) {
+                        if (data.charAt(pos) == '\\') {
+                            ++pos;
+                            if (pos < N) {
+                                char ch = data.charAt(pos);
+                                if (ch == '\n') break; //newline before string was closed
+                                else if (ch == 'n') tok += "\n";
+                                else if (ch == '\\') tok += "\\";
+                                else if (ch == '"') tok += "\"";
+                                else if (ch == 't') tok += "\t";
+                                else {
+                                    System.out.println("warning: unknown escape sequence removed from input");
                                 }
-                            } else if (tok.equals("&") || tok.equals("|")) {
-                                if (pos + 1 < N) {
-                                    if (this.data.charAt(pos + 1) == tok.charAt(0)) {
+                            } else {
+                                System.out.println("warning: ignoring unmatched escape character");
+                            }
+                        } else if (data.charAt(pos) == '"') { //end of string
+                            tok += "\"";
+                            ok = true;
+                            break;
+                        } else if (data.charAt(pos) == '\n') break;
+                        else tok += String.valueOf(data.charAt(pos)); 
+                    }
+                    if (!ok) {
+                        System.out.println("error: non terminated string");
+                        return false;
+                    }
+                } else {
+                    while (pos < N) {
+                        String ch = String.valueOf(this.data.charAt(pos));
+                        if (this.isSpace(ch)) break;
+                        else if (alphabets.contains(ch)) {
+                            if (tok.isEmpty()) {
+                                tok = ch; 
+                                if (tok.equals("=") || tok.equals("<") || tok.equals(">")) {
+                                    if (pos + 1 < N && this.data.charAt(pos + 1) == '=') {
                                         pos++;
-                                        tok += tok;
-                                        System.out.println("token " + tok);
+                                        tok += "=";
+                                    }
+                                } else if (tok.equals("&") || tok.equals("|")) {
+                                    if (pos + 1 < N) {
+                                        if (this.data.charAt(pos + 1) == tok.charAt(0)) {
+                                            pos++;
+                                            tok += tok;
+                                            System.out.println("token " + tok);
+                                        }
                                     }
                                 }
-                            }
-                        } else pos--;
-                        break;
+                            } else pos--;
+                            break;
+                        }
+                        tok += ch;
+                        pos++;
                     }
-                    tok += ch;
-                    pos++;
                 }
                 lexemes.add(tok);
             }
             pos++;
         }
         this.next_lexeme = 0;
+        return true;
     }
 }
