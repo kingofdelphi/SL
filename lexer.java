@@ -24,6 +24,7 @@ class Lexer {
         operators.add("=");
         operators.add(",");
         operators.add("<");
+        operators.add(">");
         operators.add("&");
         operators.add("|");
 

@@ -1,31 +1,35 @@
-2 * 3
-4 * 8
-a = 3
-pow = 1
+function main() {
+    2 * 3
+    4 * 8
+    a = 3
+    pow = 1
 
-if (a = b = 1 <= 1) {
-
-    a = a * 3
-
-    if (a < 10) {
-        hacker = 23
+    if (a = b = 1 <= 1.1) {
+        a = a * 3
+        if (a < 10) {
+            hacker = 23
+        }
+        for (a=1;a<=3; a = a + 1) {
+            pow = pow * 3
+        }
+        x = 3
+        z = 12
+        y = 3
     }
-
-    for (a=1;a<=3; a = a + 1) {
-        pow = pow * 3
+    y = 2
+    pow = "hack"
+    s = "buck"
+    looper()
+    for (i = 0; i <= 10; i = i + 1) {
+        fibon(i)
+        print("fibonacci ")
+        print(i)
+        print(" = ")
+        print(result)
+        print( " ")
+        print("\n")
     }
-
-    x = 3
-
-    z = 12
-
-    y = 3
-
 }
-
-y
-pow = "hack"
-s = "buck"
 
 function ba(chicken, pox) {
     print(chicken)
@@ -34,6 +38,29 @@ function ba(chicken, pox) {
     print("\n")
 }
 
-for (i = 1; i <= 10; i = i + 1) {
-    ba(i, i * i)
+
+result = 1
+
+function fibon(n) {
+    if (n < .1) result = 1
+    if (n < 1.1) result = 1
+    if (n > 1) {
+        fibon(n - 2)
+        a = result
+        fibon(n - 1)
+        result = result + a
+    }
 }
+
+function factorial(x) {
+    if (0.1 > x) result = 1
+    if (x > 0) factorial(x - 1), result = result * x
+}
+
+function looper() {
+    for (a = 1; a <= 10; a = a + 1) {
+        factorial(a), print(result), print("\n")
+    }
+}
+
+main()

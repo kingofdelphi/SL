@@ -1,7 +1,9 @@
 //Todo Next
 //1. function parameters name validity
-//2. scoping
+//2. for / if single statement scoping
 //3. typing
+//4. returns
+//5. semantic error check
 
 import java.util.*;
 import java.io.*;
@@ -14,6 +16,106 @@ import static java.util.Arrays.asList;
 class Parser {
     private Lexer lexer;
     //Node represents a node in syntax tree
+    static class Scope {
+        public HashMap<String, String> variables;
+        Scope() {
+            variables = new HashMap<String, String>();
+        }
+    }
+
+    static class RunInfo {
+        public ArrayList<ArrayList<Scope>> callstack;
+        public ArrayList<Scope> global;
+
+        RunInfo() {
+            callstack = new ArrayList<ArrayList<Scope>>();
+            global = new ArrayList<Scope>();
+            global.add(new Scope());
+        }
+        
+        //returns the scope where variable was defined from
+        //a stack of scope
+        Scope getScopeFromStack(ArrayList<Scope> sc, String var) {
+            for (int i = sc.size() - 1; i >= 0; --i) {
+                if (sc.get(i).variables.containsKey(var)) {
+                    return sc.get(i);
+                }
+            }
+            return null;
+        }
+
+        //returns the scope of variable 
+        //if variable was not defined, returns null
+        //
+        Scope getScope(String var) {
+            Scope sc = null;
+
+            if (callstack.size() > 0) {
+                sc = getScopeFromStack(callstack.get(callstack.size() - 1), var);
+                if (sc != null) {
+                    return sc;
+                }
+            }
+
+            return getScopeFromStack(global, var);
+        }
+
+        String getValue(String var) {
+            Scope sc = getScope(var);
+            if (sc != null) return sc.variables.get(var);
+            return null;
+        }
+
+        //set variable to a certain value
+        //if variable does not exist, it means create a variable
+        //else override the existing value
+        void setVariable(String var, String value) {
+            Scope sc = getScope(var);
+            if (sc != null) {
+                sc.variables.put(var, value);
+                return; 
+            }
+
+            //variable doesnot exist so create a new one
+            //System.out.println("variable new " + var);
+            if (callstack.size() > 0) {
+                ArrayList<Scope> sl = callstack.get(callstack.size() - 1);
+                sl.add(new Scope());
+                sl.get(sl.size() - 1).variables.put(var, value);
+            } else {
+                global.get(global.size() - 1).variables.put(var, value);
+            }
+        }
+
+        void addScope(Scope sc) {
+            if (callstack.size() > 0) {
+                ArrayList<Scope> sl = callstack.get(callstack.size() - 1);
+                sl.add(sc);
+            } else global.add(sc);
+        }
+
+        void popScope() {
+            if (callstack.size() > 0) {
+                ArrayList<Scope> sl = callstack.get(callstack.size() - 1);
+                sl.remove(sl.size() - 1);
+            } else global.remove(global.size() - 1);
+        }
+
+        ArrayList<Scope> getCurrentCall() {
+            return 
+                callstack.get(callstack.size() - 1);
+        }
+
+        void addFunctionScope() {
+            callstack.add(new ArrayList<Scope>());
+        }
+
+        void popFunctionScope() {
+            callstack.remove(callstack.size() - 1);
+        }
+
+    }
+
     static class Node {
 
         public enum Type {
@@ -42,8 +144,7 @@ class Parser {
             }
         }
 
-        public String evaluate(HashMap<String, String> vars, HashMap<String, Node> fxnlist) {
- 
+        public String evaluate(RunInfo vars, HashMap<String, Node> fxnlist) {
             if (this.type == Type.FUNCTION_CREATE) {
                 fxnlist.put(this.lexeme, this);
                 return "void";
@@ -58,7 +159,7 @@ class Parser {
             } else if (this.type == Type.ASSIGN) {
                 String rvalue = this.children.get(1).evaluate(vars, fxnlist);
                 //System.out.println("lexeme of lvalue " + this.children.get(0).lexeme);
-                vars.put(this.children.get(0).lexeme, rvalue);
+                vars.setVariable(this.children.get(0).lexeme, rvalue);
                 return rvalue;
             } else if (this.type == Type.COMMA) {
                 String result = "";
@@ -67,7 +168,12 @@ class Parser {
                 }
                 return result;
             } else if (this.type == Type.IDENTIFIER) {
-                return vars.get(this.lexeme);
+                String ret = vars.getValue(this.lexeme);
+                if (ret == null) {
+                    System.out.println("error: undefined variable " + this.lexeme);
+                    return "error";
+                }
+                return ret;
             } else if (this.type == Type.CONSTANT) {
                 return this.lexeme;
             } else if (this.type == Type.CONSTANT_STRING) {
@@ -99,11 +205,13 @@ class Parser {
                     a = -a;
                 }
                 return a.toString();
-            } else if (this.type == Type.BLOCK) {
+            } else if (this.type == Type.BLOCK) { //must be in
                 String res = "void";
+                vars.addScope(new Scope());
                 for (Node i : this.children) {
                     res = i.evaluate(vars, fxnlist);
                 }
+                vars.popScope();
                 return res;
             } else if (this.type == Type.FOR) {
                 if (this.children.get(0) != null) this.children.get(0).evaluate(vars, fxnlist); //seed statement
@@ -130,11 +238,21 @@ class Parser {
                 } else {
                     Node function = fxnlist.get(this.lexeme);
                     int N = function.children.size();
+                    Scope sc = new Scope();
                     for (int i = 0; i + 1 < N; ++i) {
                         String eval = this.children.get(i).evaluate(vars, fxnlist);
-                        vars.put(function.children.get(i).lexeme, eval);
+                        sc.variables.put(function.children.get(i).lexeme, eval);
                     }
+
+                    //insert scope
+                    vars.addFunctionScope();
+                    vars.addScope(sc);
+
+                    //execute the function block
                     function.children.get(N - 1).evaluate(vars, fxnlist);
+
+                    //remove scope
+                    vars.popFunctionScope();
                 }
                 return "void";
             } else return "need to process";
@@ -186,6 +304,7 @@ class Parser {
                 Node res = new Node(Node.Type.FUNCTION_CALL);
                 res.lexeme = factor;
                 boolean first = true;
+
                 while (!this.lexer.finished()) {
                     String nxt = this.lexer.next();
                     this.lexer.undo();
@@ -204,10 +323,12 @@ class Parser {
                     res.children.add(n);
                     first = false;
                 }
+
                 if (this.lexer.finished() || !this.lexer.next().equals(")")) {
                     System.out.println("error: function invoke no closing brace");
                     return null;
                 }
+
                 r = res;
             }
             return r;
@@ -218,7 +339,7 @@ class Parser {
         if (this.lexer.finished()) return null;
         String lex = this.lexer.next();
         if (!lex.equals("{")) return null;
-        
+
         Node result = block();
         
         if (result == null) return null;
@@ -578,7 +699,8 @@ class Parser {
 
     public void main() {
         this.lexer = new Lexer();
-        HashMap<String, String> vars = new HashMap<String, String>();
+        RunInfo runinfo = new RunInfo();
+
         HashMap<String, Node> fxnlist = new HashMap<String, Node>();
         try {
             File file = new File("program");
@@ -587,6 +709,7 @@ class Parser {
             while (input.hasNextLine()) {
                 String line = input.nextLine();
                 program += line + "\n";
+
             }
             this.lexer.setData(program);
             if (!this.lexer.process()) {
@@ -602,7 +725,7 @@ class Parser {
                 if (syntax_tree != null) {
                     System.out.println("Parse successful");
                     //syntax_tree.print();
-                    System.out.println("Result: " + syntax_tree.evaluate(vars, fxnlist));
+                    System.out.println("Result: " + syntax_tree.evaluate(runinfo, fxnlist));
                 } else {
                     System.out.println("Parse failed");
                 }
@@ -634,7 +757,7 @@ class Parser {
             if (syntax_tree != null) {
                 System.out.println("Parse successful");
                 //syntax_tree.print();
-                System.out.println("Result: " + syntax_tree.evaluate(vars, fxnlist));
+                System.out.println("Result: " + syntax_tree.evaluate(runinfo, fxnlist));
             } else {
                 System.out.println("Parse failed");
             }
