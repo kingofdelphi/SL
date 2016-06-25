@@ -6,6 +6,7 @@ package parser;
 //3. typing
 //4. returns
 //5. semantic error check
+//6. else
 
 import java.util.*;
 import java.io.*;
@@ -14,6 +15,7 @@ import org.apache.commons.lang3.math.*;
 import static java.util.Arrays.asList;
 
 class Parser {
+
     private Lexer lexer;
 
     private Node factor() {
@@ -312,11 +314,43 @@ class Parser {
         return fnc;
     }
 
+    private Node def() {
+        if (lexer.finished() || !lexer.next().equals("def")) return null;
+        if (this.lexer.finished()) {
+            System.out.println("error, empty def");
+            return null;
+        }
+
+        Node res = new Node(Node.Type.VAR_DEF);
+        res.lexeme = "def"; 
+        boolean first = true;
+
+        while (!this.lexer.finished()) {
+            String s = this.lexer.next();
+            this.lexer.undo();
+            if (s.equals("}") || s.equals("\n")) {
+                break;
+            }
+            if (!first && !this.lexer.next().equals(",")) {
+                System.out.println("expected comma not found");
+                return null;
+            }
+            //todo: perform parameter name validity
+            Node n = new Node(Node.Type.IDENTIFIER);
+            n.lexeme = this.lexer.next();
+            res.children.add(n);
+            first = false;
+        }
+        return res;
+    }
+
     //interprets a single non empty statement 
     private Node interpreter() {
         String lex = this.lexer.next();
         this.lexer.undo();
-        if (lex.equals("function")) {
+        if (lex.equals("def")) {
+            return def();
+        } else if (lex.equals("function")) {
             return function_statement();
         } else if (lex.equals("if")) {
             return if_statement();
@@ -451,7 +485,6 @@ class Parser {
         return r;
     }
 
-
     public void main() {
         this.lexer = new Lexer();
         RunInfo runinfo = new RunInfo();
@@ -515,10 +548,11 @@ class Parser {
             }
             System.out.println(s);
             this.lexer.reset();
+            if (this.lexer.finished()) continue;
             Node syntax_tree = this.interpreter();
             if (syntax_tree != null) {
                 System.out.println("Parse successful");
-                syntax_tree.print();
+                //syntax_tree.print();
                 Return r = syntax_tree.evaluate(runinfo, fxnlist);
                 if (r == null) {
                     System.out.println("some error occurred");

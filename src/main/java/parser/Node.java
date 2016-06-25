@@ -11,7 +11,7 @@ public class Node {
 
     public enum Type {
         BINARY_OPERATOR, IDENTIFIER, CONSTANT, UNARY_OPERATOR, COMMA,
-        ASSIGN, IF, BLOCK, FOR, CONSTANT_STRING, FUNCTION_CREATE, FUNCTION_PARAM, FUNCTION_CALL
+        ASSIGN, IF, BLOCK, FOR, CONSTANT_STRING, FUNCTION_CREATE, FUNCTION_PARAM, FUNCTION_CALL, VAR_DEF
     }
 
     public Type type;
@@ -36,7 +36,14 @@ public class Node {
     }
 
     public Return evaluate(RunInfo vars, HashMap<String, Node> fxnlist) {
-        if (this.type == Type.FUNCTION_CREATE) {
+        if (this.type == Type.VAR_DEF) {
+            //add a new variable initialized to null
+            //System.out.println("define variable" + this.children.get(0).lexeme);
+            for (Node i : this.children) {
+                vars.createVariable(i.lexeme);
+            }
+            return new Return();
+        } else if (this.type == Type.FUNCTION_CREATE) {
             fxnlist.put(this.lexeme, this);
             return new Return();
         } else if (this.type == Type.IF) {
@@ -50,6 +57,10 @@ public class Node {
         } else if (this.type == Type.ASSIGN) {
             Return rvalue = this.children.get(1).evaluate(vars, fxnlist);
             String name = this.children.get(0).lexeme;
+            if (!vars.variableExists(name)) {
+                System.out.println("error: undefined variable " + name);
+                return null;
+            }
             Rvalue var = rvalue.eval(vars);
             //System.out.println("variable assign " + this.children.get(0).lexeme);
             vars.setVariable(this.children.get(0).lexeme, var);
@@ -64,7 +75,7 @@ public class Node {
             //System.out.println("variable " + this.lexeme);
             Rvalue rval = vars.getValue(this.lexeme);
             if (rval == null) {
-                //System.out.println("error: undefined variable " + this.lexeme);
+                System.out.println("error: undefined variable " + this.lexeme);
                 return null;
             }
             //System.out.println("variable " + this.lexeme + " value = " + rval.data);

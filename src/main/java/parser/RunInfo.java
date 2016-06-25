@@ -87,26 +87,34 @@ class RunInfo {
     Rvalue getValue(String var) {
         Scope sc = getScope(var);
         if (sc != null) return sc.variables.get(var);
+        System.out.println("undefined variable " + var);
         return null;
     }
 
-    //set variable to a certain value
-    //if variable does not exist, it means create a variable
-    //else override the existing value
+    boolean variableExists(String var) {
+        return getScope(var) != null;
+    }
+   
+    void createVariable(String var) {
+        //variable doesnot exist so create a new one
+        Rvalue value = null;
+        if (callstack.size() > 0) {
+            ArrayList<Scope> sl = callstack.get(callstack.size() - 1);
+            //sl.add(new Scope());
+            sl.get(sl.size() - 1).variables.put(var, value);
+        } else {
+            System.out.println("created variable " + var);
+            global.get(global.size() - 1).variables.put(var, value);
+        }
+    }
+
+    //override value of pre-existing variable
     void setVariable(String var, Rvalue value) {
         Scope sc = getScope(var);
         if (sc != null) {
             sc.variables.put(var, value);
-            return; 
-        }
-
-        //variable doesnot exist so create a new one
-        if (callstack.size() > 0) {
-            ArrayList<Scope> sl = callstack.get(callstack.size() - 1);
-            sl.add(new Scope());
-            sl.get(sl.size() - 1).variables.put(var, value);
         } else {
-            global.get(global.size() - 1).variables.put(var, value);
+            System.out.println("error, undefined variable assigned");
         }
     }
 

@@ -1,21 +1,24 @@
 function main() {
     2 * 3
     4 * 8
+    def a, pow, b
     a = 3
     pow = 1
-
     if (a = b = 1 <= 1.1) {
         a = a * 3
         if (a < 10) {
+            def hacker
             hacker = 23
         }
         for (a=1;a<=3; a = a + 1) {
             pow = pow * 3
         }
+        def x, y, z
         x = 3
         z = 12
         y = 3
     }
+    def y, s, i
     y = 2
     pow = "hack"
     s = "buck"
@@ -38,7 +41,7 @@ function ba(chicken, pox) {
     print("\n")
 }
 
-
+def result
 result = 1
 
 function fibon(n) {
@@ -46,6 +49,7 @@ function fibon(n) {
     if (n < 1.1) result = 1
     if (n > 1) {
         fibon(n - 2)
+        def a
         a = result
         fibon(n - 1)
         result = result + a
@@ -58,9 +62,22 @@ function factorial(x) {
 }
 
 function looper() {
+    def a
     for (a = 1; a <= 10; a = a + 1) {
         factorial(a), print(result), print("\n")
     }
 }
 
 main()
+
+function shadow() {
+    def result
+    def result
+    result = 23
+    print(result)
+    print("\n")
+}
+
+shadow()
+
+print(result)
