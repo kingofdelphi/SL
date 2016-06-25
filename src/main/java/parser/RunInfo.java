@@ -6,13 +6,47 @@ import java.nio.charset.Charset;
 import org.apache.commons.lang3.math.*;
 import static java.util.Arrays.asList;
 
+class Return {
+
+    public Rvalue value = null;
+    public String name = null;
+
+    Return(String variable) {
+        this.name = variable;
+        this.value = null;
+    }
+
+    Return(String variable, Rvalue value) {
+        this.name = variable;
+        this.value = value;
+    }
+
+    Return() {
+        this.name = null;
+        this.value = null;
+    }
+
+    Rvalue eval(RunInfo r) {
+        if (name == null && value == null) return null; //void return type
+        if (name == null) return value; //rvalue
+        return r.getValue(name); //lvalue
+    }
+}
+
+class Rvalue {
+    public String type;
+    public String data;
+    Rvalue(String type) {
+        this.type = type;
+    }
+}
 
 class RunInfo {
-    //Node represents a node in syntax tree
+
     static class Scope {
-        public HashMap<String, String> variables;
+        public HashMap<String, Rvalue> variables;
         Scope() {
-            variables = new HashMap<String, String>();
+            variables = new HashMap<String, Rvalue>();
         }
     }
 
@@ -22,18 +56,16 @@ class RunInfo {
     RunInfo() {
         callstack = new ArrayList<ArrayList<Scope>>();
         global = new ArrayList<Scope>();
-        global.add(new Scope());
     }
 
     //returns the scope where variable was defined from
     //a stack of scope
-    Scope getScopeFromStack(ArrayList<Scope> sc, String var) {
-        for (int i = sc.size() - 1; i >= 0; --i) {
-            if (sc.get(i).variables.containsKey(var)) {
-                return sc.get(i);
-            }
+    Scope getScopeFromStack(ArrayList<Scope> sc, String var) { for (int i = sc.size() - 1; i >= 0; --i) {
+        if (sc.get(i).variables.containsKey(var)) {
+            return sc.get(i);
         }
-        return null;
+    }
+    return null;
     }
 
     //returns the scope of variable 
@@ -52,7 +84,7 @@ class RunInfo {
         return getScopeFromStack(global, var);
     }
 
-    String getValue(String var) {
+    Rvalue getValue(String var) {
         Scope sc = getScope(var);
         if (sc != null) return sc.variables.get(var);
         return null;
@@ -61,7 +93,7 @@ class RunInfo {
     //set variable to a certain value
     //if variable does not exist, it means create a variable
     //else override the existing value
-    void setVariable(String var, String value) {
+    void setVariable(String var, Rvalue value) {
         Scope sc = getScope(var);
         if (sc != null) {
             sc.variables.put(var, value);
@@ -69,7 +101,6 @@ class RunInfo {
         }
 
         //variable doesnot exist so create a new one
-        //System.out.println("variable new " + var);
         if (callstack.size() > 0) {
             ArrayList<Scope> sl = callstack.get(callstack.size() - 1);
             sl.add(new Scope());
@@ -83,14 +114,20 @@ class RunInfo {
         if (callstack.size() > 0) {
             ArrayList<Scope> sl = callstack.get(callstack.size() - 1);
             sl.add(sc);
-        } else global.add(sc);
+        } else {
+            global.add(sc);
+            //System.out.println("global stck " + global.size());
+        }
     }
 
     void popScope() {
         if (callstack.size() > 0) {
             ArrayList<Scope> sl = callstack.get(callstack.size() - 1);
             sl.remove(sl.size() - 1);
-        } else global.remove(global.size() - 1);
+        } else {
+            global.remove(global.size() - 1);
+            //System.out.println("global stck " + global.size());
+        }
     }
 
     ArrayList<Scope> getCurrentCall() {

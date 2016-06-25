@@ -98,7 +98,6 @@ class Parser {
         Node result = block();
         
         if (result == null) return null;
-
         if (this.lexer.finished() || !this.lexer.next().equals("}")) {
             System.out.println("block statement unmatched");
             return null;
@@ -481,30 +480,30 @@ class Parser {
                 if (syntax_tree != null) {
                     System.out.println("Parse successful");
                     //syntax_tree.print();
-                    System.out.println("Result: " + syntax_tree.evaluate(runinfo, fxnlist));
+                    Return r = syntax_tree.evaluate(runinfo, fxnlist);
+                    if (r == null) {
+                        System.out.println("interpretation failed");
+                    }
                 } else {
                     System.out.println("Parse failed");
                 }
             }
             input.close();
-
         } catch (Exception ex) {
             ex.printStackTrace();
         }
+
         //for (String key : fxnlist.keySet()) {
         //    System.out.println(key);
         //}
+        
+        //add global scope for the interpreter
+
+        runinfo.addScope(new RunInfo.Scope());
         Scanner sc = new Scanner(System.in);
         while (true) {
             System.out.println("enter expression");
-            String expr;
-            int number = sc.nextInt();
-            if (sc.hasNextLine()) {
-                expr = sc.nextLine();
-            } else {
-                System.out.println("no input");
-                continue;
-            }
+            String expr = sc.nextLine();
             this.lexer.setData(expr);
             if (!this.lexer.process()) {
                 System.out.println("Error: parse failed");
@@ -516,11 +515,14 @@ class Parser {
             }
             System.out.println(s);
             this.lexer.reset();
-            Node syntax_tree = this.build();
+            Node syntax_tree = this.interpreter();
             if (syntax_tree != null) {
                 System.out.println("Parse successful");
-                //syntax_tree.print();
-                System.out.println("Result: " + syntax_tree.evaluate(runinfo, fxnlist));
+                syntax_tree.print();
+                Return r = syntax_tree.evaluate(runinfo, fxnlist);
+                if (r == null) {
+                    System.out.println("some error occurred");
+                } else System.out.println("successfully interpreted");
             } else {
                 System.out.println("Parse failed");
             }
