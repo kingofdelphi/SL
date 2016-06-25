@@ -1,3 +1,5 @@
+package parser;
+
 import java.io.*;
 import java.util.*;
 class Main {

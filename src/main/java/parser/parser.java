@@ -1,3 +1,5 @@
+package parser;
+
 //Todo Next
 //1. function parameters name validity
 //2. for / if single statement scoping
@@ -741,7 +743,14 @@ class Parser {
         Scanner sc = new Scanner(System.in);
         while (true) {
             System.out.println("enter expression");
-            String expr = sc.nextLine();
+            String expr;
+            int number = sc.nextInt();
+            if (sc.hasNextLine()) {
+                expr = sc.nextLine();
+            } else {
+                System.out.println("no input");
+                continue;
+            }
             this.lexer.setData(expr);
             if (!this.lexer.process()) {
                 System.out.println("Error: parse failed");
