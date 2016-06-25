@@ -1,3 +1,5 @@
+package parser;
+
 //Todo Next
 //1. function parameters name validity
 //2. for / if single statement scoping
@@ -8,258 +10,11 @@
 import java.util.*;
 import java.io.*;
 import java.nio.charset.Charset;
-
 import org.apache.commons.lang3.math.*;
-
 import static java.util.Arrays.asList;
 
 class Parser {
     private Lexer lexer;
-    //Node represents a node in syntax tree
-    static class Scope {
-        public HashMap<String, String> variables;
-        Scope() {
-            variables = new HashMap<String, String>();
-        }
-    }
-
-    static class RunInfo {
-        public ArrayList<ArrayList<Scope>> callstack;
-        public ArrayList<Scope> global;
-
-        RunInfo() {
-            callstack = new ArrayList<ArrayList<Scope>>();
-            global = new ArrayList<Scope>();
-            global.add(new Scope());
-        }
-        
-        //returns the scope where variable was defined from
-        //a stack of scope
-        Scope getScopeFromStack(ArrayList<Scope> sc, String var) {
-            for (int i = sc.size() - 1; i >= 0; --i) {
-                if (sc.get(i).variables.containsKey(var)) {
-                    return sc.get(i);
-                }
-            }
-            return null;
-        }
-
-        //returns the scope of variable 
-        //if variable was not defined, returns null
-        //
-        Scope getScope(String var) {
-            Scope sc = null;
-
-            if (callstack.size() > 0) {
-                sc = getScopeFromStack(callstack.get(callstack.size() - 1), var);
-                if (sc != null) {
-                    return sc;
-                }
-            }
-
-            return getScopeFromStack(global, var);
-        }
-
-        String getValue(String var) {
-            Scope sc = getScope(var);
-            if (sc != null) return sc.variables.get(var);
-            return null;
-        }
-
-        //set variable to a certain value
-        //if variable does not exist, it means create a variable
-        //else override the existing value
-        void setVariable(String var, String value) {
-            Scope sc = getScope(var);
-            if (sc != null) {
-                sc.variables.put(var, value);
-                return; 
-            }
-
-            //variable doesnot exist so create a new one
-            //System.out.println("variable new " + var);
-            if (callstack.size() > 0) {
-                ArrayList<Scope> sl = callstack.get(callstack.size() - 1);
-                sl.add(new Scope());
-                sl.get(sl.size() - 1).variables.put(var, value);
-            } else {
-                global.get(global.size() - 1).variables.put(var, value);
-            }
-        }
-
-        void addScope(Scope sc) {
-            if (callstack.size() > 0) {
-                ArrayList<Scope> sl = callstack.get(callstack.size() - 1);
-                sl.add(sc);
-            } else global.add(sc);
-        }
-
-        void popScope() {
-            if (callstack.size() > 0) {
-                ArrayList<Scope> sl = callstack.get(callstack.size() - 1);
-                sl.remove(sl.size() - 1);
-            } else global.remove(global.size() - 1);
-        }
-
-        ArrayList<Scope> getCurrentCall() {
-            return 
-                callstack.get(callstack.size() - 1);
-        }
-
-        void addFunctionScope() {
-            callstack.add(new ArrayList<Scope>());
-        }
-
-        void popFunctionScope() {
-            callstack.remove(callstack.size() - 1);
-        }
-
-    }
-
-    static class Node {
-
-        public enum Type {
-            BINARY_OPERATOR, IDENTIFIER, CONSTANT, UNARY_OPERATOR, COMMA,
-            ASSIGN, IF, BLOCK, FOR, CONSTANT_STRING, FUNCTION_CREATE, FUNCTION_PARAM, FUNCTION_CALL
-        }
-
-        public Type type;
-        public String lexeme;
-        public ArrayList<Node> children;
-
-        Node(Type type) {
-            this.type = type;
-            this.lexeme = "";
-            children = new ArrayList<Node>();
-        }
-
-        public void print() {
-            for (Node i : children) {
-                i.print();
-            }
-            if (this.type == Type.IDENTIFIER) {
-                System.out.println("node: " + this.lexeme);
-            } else {
-                System.out.println("node: " + this.type);
-            }
-        }
-
-        public String evaluate(RunInfo vars, HashMap<String, Node> fxnlist) {
-            if (this.type == Type.FUNCTION_CREATE) {
-                fxnlist.put(this.lexeme, this);
-                return "void";
-            } else if (this.type == Type.IF) {
-                //System.out.println("node if" + this.children.get(0).type);
-                String cond = this.children.get(0).evaluate(vars, fxnlist);
-                if (NumberUtils.createDouble(cond) > 0) {
-                    return this.children.get(1).evaluate(vars, fxnlist);
-                } else {
-                    return "void";
-                }
-            } else if (this.type == Type.ASSIGN) {
-                String rvalue = this.children.get(1).evaluate(vars, fxnlist);
-                //System.out.println("lexeme of lvalue " + this.children.get(0).lexeme);
-                vars.setVariable(this.children.get(0).lexeme, rvalue);
-                return rvalue;
-            } else if (this.type == Type.COMMA) {
-                String result = "";
-                for (Node i : children) {
-                    result = i.evaluate(vars, fxnlist);
-                }
-                return result;
-            } else if (this.type == Type.IDENTIFIER) {
-                String ret = vars.getValue(this.lexeme);
-                if (ret == null) {
-                    System.out.println("error: undefined variable " + this.lexeme);
-                    return "error";
-                }
-                return ret;
-            } else if (this.type == Type.CONSTANT) {
-                return this.lexeme;
-            } else if (this.type == Type.CONSTANT_STRING) {
-                return this.lexeme;
-            } else if (this.type == Type.BINARY_OPERATOR) {
-                String op1 = this.children.get(0).evaluate(vars, fxnlist);
-                String op2 = this.children.get(1).evaluate(vars, fxnlist);
-                Double a = NumberUtils.createDouble(op1);
-                Double b = NumberUtils.createDouble(op2);
-                Double result = 0.0;
-
-                if (this.lexeme.equals("+")) result = a + b;
-                else if (this.lexeme.equals("-")) result = a - b;
-                else if (this.lexeme.equals("*")) result = a * b;
-                else if (this.lexeme.equals("/")) result = a / b;
-                else if (this.lexeme.equals("<")) result = (a < b ? 1.0 : 0.0);
-                else if (this.lexeme.equals("<=")) result = (a <= b ? 1.0 : 0.0);
-                else if (this.lexeme.equals(">")) result = (a > b ? 1.0 : 0.0);
-                else if (this.lexeme.equals(">=")) result = (a >= b ? 1.0 : 0.0);
-                else if (this.lexeme.equals("==")) result = (a == b ? 1.0 : 0.0);
-                else if (this.lexeme.equals("&&")) result = (a != 0 && b != 0 ? 1.0 : 0.0);
-                else if (this.lexeme.equals("||")) result = (a != 0 || b != 0 ? 1.0 : 0.0);
-
-                return result.toString();
-            } else if (this.type == Type.UNARY_OPERATOR) {
-                String op1 = this.children.get(0).evaluate(vars, fxnlist);
-                Double a = NumberUtils.createDouble(op1);
-                if (this.lexeme.equals("-")) {
-                    a = -a;
-                }
-                return a.toString();
-            } else if (this.type == Type.BLOCK) { //must be in
-                String res = "void";
-                vars.addScope(new Scope());
-                for (Node i : this.children) {
-                    res = i.evaluate(vars, fxnlist);
-                }
-                vars.popScope();
-                return res;
-            } else if (this.type == Type.FOR) {
-                if (this.children.get(0) != null) this.children.get(0).evaluate(vars, fxnlist); //seed statement
-                while (true) {
-                    String cond = this.children.get(1) == null ? "1.0" : this.children.get(1).evaluate(vars, fxnlist); 
-                    if (NumberUtils.createDouble(cond) > 0) {
-                        this.children.get(3).evaluate(vars, fxnlist); //for execution code
-                        if (this.children.get(2) != null) 
-                            this.children.get(2).evaluate(vars, fxnlist); //for post execution
-                    } else {
-                        break;
-                    }
-                }
-                return "void";
-            } else if (this.type == Type.FUNCTION_CALL) {
-                if (this.lexeme.equals("print")) {
-                    //inbuilt function call
-                    //todo: verify argument size
-                    String s = this.children.get(0).evaluate(vars, fxnlist);
-                    if (s.length() > 0 && s.charAt(0) == '"') {
-                        s = s.substring(1, s.length() - 1);
-                    }
-                    System.out.print(s);
-                } else {
-                    Node function = fxnlist.get(this.lexeme);
-                    int N = function.children.size();
-                    Scope sc = new Scope();
-                    for (int i = 0; i + 1 < N; ++i) {
-                        String eval = this.children.get(i).evaluate(vars, fxnlist);
-                        sc.variables.put(function.children.get(i).lexeme, eval);
-                    }
-
-                    //insert scope
-                    vars.addFunctionScope();
-                    vars.addScope(sc);
-
-                    //execute the function block
-                    function.children.get(N - 1).evaluate(vars, fxnlist);
-
-                    //remove scope
-                    vars.popFunctionScope();
-                }
-                return "void";
-            } else return "need to process";
-        }
-
-
-    }
 
     private Node factor() {
         if (this.lexer.finished()) return null;
@@ -343,6 +98,7 @@ class Parser {
         Node result = block();
         
         if (result == null) return null;
+
         if (this.lexer.finished() || !this.lexer.next().equals("}")) {
             System.out.println("block statement unmatched");
             return null;
@@ -741,7 +497,14 @@ class Parser {
         Scanner sc = new Scanner(System.in);
         while (true) {
             System.out.println("enter expression");
-            String expr = sc.nextLine();
+            String expr;
+            int number = sc.nextInt();
+            if (sc.hasNextLine()) {
+                expr = sc.nextLine();
+            } else {
+                System.out.println("no input");
+                continue;
+            }
             this.lexer.setData(expr);
             if (!this.lexer.process()) {
                 System.out.println("Error: parse failed");
