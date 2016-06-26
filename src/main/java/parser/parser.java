@@ -2,11 +2,10 @@ package parser;
 
 //Todo Next
 //1. function parameters name validity
-//2. for / if single statement scoping
+//2. for / if single statement return
 //3. typing
-//4. returns
-//5. semantic error check
-//6. else
+//4. semantic error check
+//5. else
 
 import java.util.*;
 import java.io.*;
@@ -42,8 +41,10 @@ class Parser {
             boolean fxn = false;
             if (factor.charAt(0) == '\"') {
                 type = Node.Type.CONSTANT_STRING;
+            } else if (NumberUtils.isDigits(factor)) {
+                type = Node.Type.CONSTANT_INTEGER;
             } else if (NumberUtils.isNumber(factor)) {
-                type = Node.Type.CONSTANT;
+                type = Node.Type.CONSTANT_FLOAT;
             } else {
                 type = Node.Type.IDENTIFIER;
                 if (!this.lexer.finished()) {
@@ -263,6 +264,23 @@ class Parser {
         return result;
     }
 
+    private Node returnStmt() {
+        if (this.lexer.finished()) return null;
+        if (!this.lexer.next().equals("return")) return null;
+        Node res = new Node(Node.Type.RETURN);
+        res.lexeme = "return"; 
+        if (!this.lexer.finished()) {
+            String nxt = this.lexer.next();
+            this.lexer.undo();
+            if (!nxt.equals("\n") && !nxt.equals("}")) {
+                Node expr = goodSolver(0);
+                if (expr == null) return null;
+                res.children.add(expr);
+            }
+        }
+        return res;
+    }
+    
     private Node function_statement() {
         if (this.lexer.finished()) return null;
         String lex = this.lexer.next();
@@ -350,6 +368,8 @@ class Parser {
         this.lexer.undo();
         if (lex.equals("def")) {
             return def();
+        } else if (lex.equals("return")) {
+            return returnStmt();
         } else if (lex.equals("function")) {
             return function_statement();
         } else if (lex.equals("if")) {

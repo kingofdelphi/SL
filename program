@@ -1,3 +1,10 @@
+function mod(a, b) {
+    for (;a >= b;) {
+        a = a - b
+    }
+    return a
+}
+
 function main() {
     2 * 3
     4 * 8
@@ -24,60 +31,75 @@ function main() {
     s = "buck"
     looper()
     for (i = 0; i <= 10; i = i + 1) {
-        fibon(i)
         print("fibonacci ")
         print(i)
         print(" = ")
-        print(result)
-        print( " ")
+        print(" ")
         print("\n")
     }
 }
 
-function ba(chicken, pox) {
-    print(chicken)
-    print(" squared  = ")
-    print(pox)
-    print("\n")
-}
-
-def result
-result = 1
-
 function fibon(n) {
-    if (n < .1) result = 1
-    if (n < 1.1) result = 1
+    if (n < 1.1) {
+        return 1
+    }
     if (n > 1) {
-        fibon(n - 2)
-        def a
-        a = result
-        fibon(n - 1)
-        result = result + a
+        return fibon(n - 2) + fibon(n - 1)
     }
 }
 
 function factorial(x) {
-    if (0.1 > x) result = 1
-    if (x > 0) factorial(x - 1), result = result * x
+    if (x < 1.1) {
+        return 1
+    }
+    return x * factorial(x - 1)
 }
 
 function looper() {
     def a
+    a = 3
     for (a = 1; a <= 10; a = a + 1) {
-        factorial(a), print(result), print("\n")
+        print("factorial "), print(factorial(a))
+        print(" fibon "), print(fibon(a))
+        print("\n")
     }
 }
 
-main()
-
-function shadow() {
-    def result
-    def result
-    result = 23
-    print(result)
-    print("\n")
+function isprime(n) {
+    if (n < 2) {
+        return 0
+    }
+    if (n == 2) {
+        return 1
+    }
+    if (mod(n, 2) < 1) {
+        return 0
+    }
+    def i
+    for (i = 3; i * i <= n; i = i + 2) {
+        if (mod(n, i) < 1) {
+            return 0
+        }
+    }
+    return 1
 }
 
-shadow()
+function primes() {
+    def i
+    for (i = 1; i <= 100; i = i + 1) {
+        if (isprime(i) > 0) {
+            print(i)
+            print("\n")
+        }
+    }
+}
 
-print(result)
+looper()
+print(1)
+print(2)
+print(3)
+return
+print(5)
+print(6)
+
+primes()

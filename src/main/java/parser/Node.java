@@ -10,8 +10,9 @@ import static java.util.Arrays.asList;
 public class Node {
 
     public enum Type {
-        BINARY_OPERATOR, IDENTIFIER, CONSTANT, UNARY_OPERATOR, COMMA,
-        ASSIGN, IF, BLOCK, FOR, CONSTANT_STRING, FUNCTION_CREATE, FUNCTION_PARAM, FUNCTION_CALL, VAR_DEF
+        BINARY_OPERATOR, IDENTIFIER, CONSTANT_INTEGER, CONSTANT_FLOAT, UNARY_OPERATOR, COMMA,
+        ASSIGN, IF, BLOCK, FOR, CONSTANT_STRING, FUNCTION_CREATE, FUNCTION_PARAM, FUNCTION_CALL, VAR_DEF,
+        RETURN
     }
 
     public Type type;
@@ -36,7 +37,13 @@ public class Node {
     }
 
     public Return evaluate(RunInfo vars, HashMap<String, Node> fxnlist) {
-        if (this.type == Type.VAR_DEF) {
+        if (this.type == Type.RETURN) {
+            if (this.children.size() > 0) {
+                Return val = this.children.get(0).evaluate(vars, fxnlist);
+                return new Return("return", val.eval(vars));
+            }
+            return new Return("return");
+        } else if (this.type == Type.VAR_DEF) {
             //add a new variable initialized to null
             //System.out.println("define variable" + this.children.get(0).lexeme);
             for (Node i : this.children) {
@@ -72,7 +79,6 @@ public class Node {
             }
             return result;
         } else if (this.type == Type.IDENTIFIER) {
-            //System.out.println("variable " + this.lexeme);
             Rvalue rval = vars.getValue(this.lexeme);
             if (rval == null) {
                 System.out.println("error: undefined variable " + this.lexeme);
@@ -80,8 +86,12 @@ public class Node {
             }
             //System.out.println("variable " + this.lexeme + " value = " + rval.data);
             return new Return(null, rval);
-        } else if (this.type == Type.CONSTANT) {
+        } else if (this.type == Type.CONSTANT_INTEGER) {
             Rvalue rval = new Rvalue("integer");
+            rval.data = this.lexeme;
+            return new Return(null, rval);
+        } else if (this.type == Type.CONSTANT_FLOAT) {
+            Rvalue rval = new Rvalue("float");
             rval.data = this.lexeme;
             return new Return(null, rval);
         } else if (this.type == Type.CONSTANT_STRING) {
@@ -91,6 +101,16 @@ public class Node {
         } else if (this.type == Type.BINARY_OPERATOR) {
             Return op1 = this.children.get(0).evaluate(vars, fxnlist);
             Return op2 = this.children.get(1).evaluate(vars, fxnlist);
+
+            String dtype;
+
+            if (op1.value.type.equals("integer") && op2.value.type.equals("integer")) dtype = "integer";
+            else if (op1.value.type.equals("float") || op2.value.type.equals("float")) dtype = "float";
+            else {
+                System.out.println("error: binary operation on unmatched types");
+                return null;
+            }
+
             Double a = NumberUtils.createDouble(op1.eval(vars).data);
             Double b = NumberUtils.createDouble(op2.eval(vars).data);
             Double result = 0.0;
@@ -106,39 +126,52 @@ public class Node {
             else if (this.lexeme.equals("==")) result = (a == b ? 1.0 : 0.0);
             else if (this.lexeme.equals("&&")) result = (a != 0 && b != 0 ? 1.0 : 0.0);
             else if (this.lexeme.equals("||")) result = (a != 0 || b != 0 ? 1.0 : 0.0);
+            
+            Rvalue rval = new Rvalue(dtype);
 
-            Rvalue rval = new Rvalue("string");
-            rval.data = result.toString();
+            if (dtype.equals("integer")) rval.data = Integer.toString(result.intValue());
+            else rval.data = result.toString();
             return new Return(null, rval);
+
         } else if (this.type == Type.UNARY_OPERATOR) {
             Return op1 = this.children.get(0).evaluate(vars, fxnlist);
             Double a = NumberUtils.createDouble(op1.eval(vars).data);
             if (this.lexeme.equals("-")) {
                 a = -a;
             }
-            Rvalue rval = new Rvalue("integer");
+            Rvalue rval = new Rvalue(op1.value.type);
             rval.data = a.toString();
             return new Return(null, rval);
         } else if (this.type == Type.BLOCK) { //must be in
             vars.addScope(new RunInfo.Scope());
+            Return ret = new Return();
             for (Node i : this.children) {
-                i.evaluate(vars, fxnlist);
-            }
-            vars.popScope();
-            return new Return(); //void return
-        } else if (this.type == Type.FOR) {
-            if (this.children.get(0) != null) this.children.get(0).evaluate(vars, fxnlist); //seed statement
-            while (true) {
-                String cond = this.children.get(1) == null ? "1.0" : this.children.get(1).evaluate(vars, fxnlist).eval(vars).data; 
-                if (NumberUtils.createDouble(cond) > 0) {
-                    this.children.get(3).evaluate(vars, fxnlist); //for execution code
-                    if (this.children.get(2) != null) 
-                        this.children.get(2).evaluate(vars, fxnlist); //for post execution
-                } else {
+                Return r = i.evaluate(vars, fxnlist);
+                if (r.name != null && r.name.equals("return")) {
+                    ret = r;
+                    //System.out.println("return fxn " + r.value);
                     break;
                 }
             }
-            return new Return(); //void return
+            vars.popScope();
+            return ret;
+        } else if (this.type == Type.FOR) {
+            if (this.children.get(0) != null) this.children.get(0).evaluate(vars, fxnlist); //seed statement
+            Return ret = new Return();
+            while (true) {
+                String cond = this.children.get(1) == null ? "1.0" : this.children.get(1).evaluate(vars, fxnlist).eval(vars).data; 
+                if (NumberUtils.createDouble(cond) == 0) break;
+                Return r = this.children.get(3).evaluate(vars, fxnlist); //for execution code
+                if (r.name != null && r.name.equals("return")) {
+                    //System.out.println("exit from fxn");
+                    ret = r;
+                    break;
+                }
+                if (this.children.get(2) != null) {
+                    this.children.get(2).evaluate(vars, fxnlist); //for post execution
+                }
+            }
+            return ret;
         } else if (this.type == Type.FUNCTION_CALL) {
             if (this.lexeme.equals("print")) {
                 //inbuilt function call
@@ -148,16 +181,20 @@ public class Node {
                     s = s.substring(1, s.length() - 1);
                 }
                 System.out.print(s);
+                return new Return();
             } else {
+                //System.out.println("function call " + this.lexeme);
                 Node function = fxnlist.get(this.lexeme);
                 int N = function.children.size();
                 RunInfo.Scope sc = new RunInfo.Scope();
+
                 for (int i = 0; i + 1 < N; ++i) {
-                    String eval = this.children.get(i).evaluate(vars, fxnlist).eval(vars).data;
+                    Rvalue rval = this.children.get(i).evaluate(vars, fxnlist).eval(vars);
+                    if (rval == null) {
+                        System.out.println("error: Null returned fxn argu");
+                    }
                     String name = function.children.get(i).lexeme;
-                    Rvalue var = new Rvalue("integer");
-                    var.data = eval;
-                    sc.variables.put(name, var);
+                    sc.variables.put(name, rval);
                 }
 
                 //insert scope
@@ -165,12 +202,16 @@ public class Node {
                 vars.addScope(sc);
 
                 //execute the function block
-                function.children.get(N - 1).evaluate(vars, fxnlist);
-
+                Return r = function.children.get(N - 1).evaluate(vars, fxnlist);
+                Return ret = new Return();
+                if (r.name != null && r.name.equals("return")) {
+                    ret = new Return(null, r.value);
+                }
+                //System.out.println("exited from function");
                 //remove scope
                 vars.popFunctionScope();
+                return ret;
             }
-            return new Return();
         } else return new Return();
     }
 }

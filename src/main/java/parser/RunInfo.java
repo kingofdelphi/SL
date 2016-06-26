@@ -60,12 +60,13 @@ class RunInfo {
 
     //returns the scope where variable was defined from
     //a stack of scope
-    Scope getScopeFromStack(ArrayList<Scope> sc, String var) { for (int i = sc.size() - 1; i >= 0; --i) {
-        if (sc.get(i).variables.containsKey(var)) {
-            return sc.get(i);
+    Scope getScopeFromStack(ArrayList<Scope> sc, String var) { 
+        for (int i = sc.size() - 1; i >= 0; --i) {
+            if (sc.get(i).variables.containsKey(var)) {
+                return sc.get(i);
+            }
         }
-    }
-    return null;
+        return null;
     }
 
     //returns the scope of variable 
