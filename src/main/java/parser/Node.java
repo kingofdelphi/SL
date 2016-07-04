@@ -92,7 +92,7 @@ public class Node {
         if (this.type == Type.RETURN) {
             if (this.children.size() > 0) {
                 Return val = this.children.get(0).evaluate(vars, fxnlist);
-                return new Return("return", val.eval(vars));
+                return new Return("return", val.value);
             }
             return new Return("return");
         } else if (this.type == Type.VAR_DEF) {
@@ -108,11 +108,12 @@ public class Node {
         } else if (this.type == Type.IF) {
             //System.out.println("node if" + this.children.get(0).type);
             Return cond = this.children.get(0).evaluate(vars, fxnlist);
-            if (cond.eval(vars) == null) {
+            if (cond.value == null) {
                 throw new RunException("evaluation of void expression");
             }
             Return rv = new Return();
-            if (NumberUtils.createDouble(cond.eval(vars).data) > 0) {//*****************************************
+            if ((!cond.value.type.equals("integer") && !cond.value.type.equals("float")) || 
+                    NumberUtils.createDouble(cond.value.data) > 0) {
                 rv = this.children.get(1).evaluate(vars, fxnlist);
             } else if (this.children.size() == 3) {
                 //this is the else statement
@@ -120,18 +121,17 @@ public class Node {
             }
             return rv;
         } else if (this.type == Type.ASSIGN) {
-            Return rvalue = this.children.get(1).evaluate(vars, fxnlist);
             String name = this.children.get(0).lexeme;
             if (!vars.variableExists(name)) {
                 throw new RunException("undefined variable " + name);
             }
-            Rvalue var = rvalue.eval(vars);
-            if (var == null) {
+            Return rvalue = this.children.get(1).evaluate(vars, fxnlist);
+            if (rvalue.value == null) {
                 throw new RunException("assignment of void expression");
             }
             //System.out.println("variable assign " + this.children.get(0).lexeme);
-            vars.setVariable(this.children.get(0).lexeme, var);
-            return new Return(name);
+            vars.setVariable(this.children.get(0).lexeme, rvalue.value);
+            return rvalue;
         } else if (this.type == Type.COMMA) {
             Return result = null;
             for (Node i : children) {
@@ -165,7 +165,7 @@ public class Node {
             Return op1 = this.children.get(0).evaluate(vars, fxnlist);
             Return op2 = this.children.get(1).evaluate(vars, fxnlist);
 
-            if (op1.eval(vars) == null || op2.eval(vars) == null) {
+            if (op1.value == null || op2.value == null) {
                 throw new RunException("operation " + this.lexeme + " on void operands");
             }
 
@@ -183,19 +183,19 @@ public class Node {
             if (isArith(this.lexeme)) {
                 Rvalue rval = new Rvalue(dtype);
                 if (dtype.equals("integer")) {
-                    Integer a = Integer.parseInt(op1.eval(vars).data);
-                    Integer b = Integer.parseInt(op2.eval(vars).data);
+                    Integer a = Integer.parseInt(op1.value.data);
+                    Integer b = Integer.parseInt(op2.value.data);
                     Integer result = doArith(this.lexeme, new Double(a), new Double(b)).intValue();
                     rval.data = result.toString();
                 } else if (dtype.equals("float")) {
-                    Double a = NumberUtils.createDouble(op1.eval(vars).data);
-                    Double b = NumberUtils.createDouble(op2.eval(vars).data);
+                    Double a = NumberUtils.createDouble(op1.value.data);
+                    Double b = NumberUtils.createDouble(op2.value.data);
                     Double result = doArith(this.lexeme, a, b);
                     rval.data = result.toString();
                 } else if (dtype.equals("string")) {
                     if (this.lexeme.equals("+")) {
-                        String a = op1.eval(vars).data;
-                        String b = op2.eval(vars).data;
+                        String a = op1.value.data;
+                        String b = op2.value.data;
                         rval.data = a + b;
                     } else {
                         throw new RunException("unsupported operation " + this.lexeme + " on string");
@@ -207,29 +207,32 @@ public class Node {
             } else if (isComp(this.lexeme)) {//comparison
                 Rvalue rval = new Rvalue("integer");
                 if (dtype.equals("integer")) {
-                    Integer a = Integer.parseInt(op1.eval(vars).data);
-                    Integer b = Integer.parseInt(op2.eval(vars).data);
+                    Integer a = Integer.parseInt(op1.value.data);
+                    Integer b = Integer.parseInt(op2.value.data);
                     int result = doRel(this.lexeme, a, b);
                     rval.data = String.valueOf(result);
                 } else if (dtype.equals("float")) {
-                    Double a = NumberUtils.createDouble(op1.eval(vars).data);
-                    Double b = NumberUtils.createDouble(op2.eval(vars).data);
+                    Double a = NumberUtils.createDouble(op1.value.data);
+                    Double b = NumberUtils.createDouble(op2.value.data);
                     int result = doRel(this.lexeme, a, b);
                     rval.data = String.valueOf(result);
                 } else {
-                    throw new RunException("unsupported type " + dtype);
+                    String a = op1.value.data;
+                    String b = op2.value.data;
+                    int result = doRel(this.lexeme, a, b);
+                    rval.data = String.valueOf(result);
                 }
                 return new Return(null, rval);
             } else {
                 Rvalue rval = new Rvalue("integer");
                 if (dtype.equals("integer")) {
-                    Integer a = Integer.parseInt(op1.eval(vars).data);
-                    Integer b = Integer.parseInt(op2.eval(vars).data);
+                    Integer a = Integer.parseInt(op1.value.data);
+                    Integer b = Integer.parseInt(op2.value.data);
                     boolean result = this.lexeme.equals("&&") ? (a > 0 && b > 0) : (a > 0 || b > 0);
                     rval.data = String.valueOf(result ? 1 : 0);
                 } else if (dtype.equals("float")) {
-                    Double a = NumberUtils.createDouble(op1.eval(vars).data);
-                    Double b = NumberUtils.createDouble(op2.eval(vars).data);
+                    Double a = NumberUtils.createDouble(op1.value.data);
+                    Double b = NumberUtils.createDouble(op2.value.data);
                     boolean result = this.lexeme.equals("&&") ? (a > 0 && b > 0) : (a > 0 || b > 0);
                     rval.data = String.valueOf(result ? 1 : 0);
                 } else {
@@ -239,10 +242,13 @@ public class Node {
             }
         } else if (this.type == Type.UNARY_OPERATOR) {
             Return op1 = this.children.get(0).evaluate(vars, fxnlist);
-            if (op1.eval(vars) == null) {
+            if (op1.value == null) {
                 throw new RunException("evaluation of void expression");
             }
-            Double a = NumberUtils.createDouble(op1.eval(vars).data);
+            if (!op1.value.type.equals("integer") && !op1.value.type.equals("float")) {
+                throw new RunException("unary operation on unsupported type");
+            }
+            Double a = NumberUtils.createDouble(op1.value.data); //assumes double / integer
             if (this.lexeme.equals("-")) {
                 a = -a;
             }
@@ -271,10 +277,10 @@ public class Node {
                     cond = "1";
                 } else {
                     Return rval = this.children.get(1).evaluate(vars, fxnlist);
-                    if (rval.eval(vars) == null) {
+                    if (rval.value == null) {
                         throw new RunException("evaluation of void expression");
                     } else {
-                        cond = rval.eval(vars).data; 
+                        cond = rval.value.data; 
                     }
                 }
                 if (NumberUtils.createDouble(cond) == 0) break;
@@ -295,7 +301,7 @@ public class Node {
                 //todo: verify argument size
                 String res = "";
                 for (int i = 0; i < this.children.size(); ++i) {
-                    Rvalue ev = this.children.get(i).evaluate(vars, fxnlist).eval(vars);
+                    Rvalue ev = this.children.get(i).evaluate(vars, fxnlist).value;
                     if (ev == null) {
                         throw new RunException("evaluation of void expression");
                     }
@@ -310,7 +316,10 @@ public class Node {
                 RunInfo.Scope sc = new RunInfo.Scope();
 
                 for (int i = 0; i + 1 < N; ++i) {
-                    Rvalue rval = this.children.get(i).evaluate(vars, fxnlist).eval(vars);
+                    Rvalue rval = this.children.get(i).evaluate(vars, fxnlist).value;
+                    if (rval == null) {
+                        throw new RunException("passing void value as argument to function " + this.lexeme);
+                    }
                     String name = function.children.get(i).lexeme;
                     sc.variables.put(name, rval);
                 }

@@ -6,6 +6,7 @@ import java.nio.charset.Charset;
 import org.apache.commons.lang3.math.*;
 import static java.util.Arrays.asList;
 
+//later: make it return references too
 class Return {
 
     public Rvalue value = null;
@@ -31,6 +32,7 @@ class Return {
         if (name == null) return value; //rvalue
         return r.getValue(name); //lvalue
     }
+
 }
 
 class Rvalue {

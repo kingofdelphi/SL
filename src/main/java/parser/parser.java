@@ -552,7 +552,7 @@ class Parser {
                 while (!this.lexer.finished()) {
                     s += (s.length() > 0 ? ", " : "") + this.lexer.next();
                 }
-                System.out.println(s);
+                //System.out.println(s);
                 this.lexer.reset();
                 Node syntax_tree = this.build();
                 if (syntax_tree != null) {

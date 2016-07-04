@@ -1,6 +1,5 @@
 function mod(a, b) {
-    for (;a >= b;) a = a - b
-    return a
+    return a - (a / b) * b
 }
 
 function gcd(a, b) {
@@ -13,7 +12,6 @@ function gcd(a, b) {
 }
 
 function main() {
-    2 * 3
     4 * 8
     def a, pow, b
     a = 3
@@ -86,9 +84,7 @@ function isprime(n) {
 function primes() {
     def i
     for (i = 1; i <= 100; i = i + 1) {
-        if (isprime(i)) {
-            print(i, "\n")
-        }
+        if (isprime(i)) print(i, "\n")
     }
 }
 
@@ -106,7 +102,7 @@ function flag() {
         for (i = 1; i <= h; i = i + 1) {
             def j, max
             if (reverse) max = h - i + 1
-            if (reverse == 0) max = i
+            else max = i
             for (j = 1; j <= max; j = j + 1) s = s + "*"
             s = s + "\n"
         }
@@ -121,3 +117,9 @@ function flag() {
 }
 
 flag()
+main()
+
+function hak(b) {
+}
+
+hak(flag())
