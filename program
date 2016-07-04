@@ -1,8 +1,15 @@
 function mod(a, b) {
-    for (;a >= b;) {
-        a = a - b
-    }
+    for (;a >= b;) a = a - b
     return a
+}
+
+function gcd(a, b) {
+    if (mod(a, b) == 0) {
+        return b
+    } else {
+        return gcd(b, mod(a, b))
+    }
+    mod(23, 5)
 }
 
 function main() {
@@ -17,51 +24,42 @@ function main() {
             def hacker
             hacker = 23
         }
-        for (a=1;a<=3; a = a + 1) {
-            pow = pow * 3
-        }
+        for (a=1;a<=3; a = a + 1) pow = pow * 3
         def x, y, z
         x = 3
         z = 12
         y = 3
     }
     def y, s, i
-    y = 2
-    pow = "hack"
-    s = "buck"
+    y = 2, pow = "hack", s = "buck"
     looper()
     for (i = 0; i <= 10; i = i + 1) {
-        print("fibonacci ")
-        print(i)
-        print(" = ")
-        print(" ")
-        print("\n")
+        print("fibonacci ", i, " = ", fibon(i), "\n")
     }
 }
 
 function fibon(n) {
-    if (n < 1.1) {
+    if (n == 0 || n == 1) {
         return 1
-    }
-    if (n > 1) {
+    } else {
         return fibon(n - 2) + fibon(n - 1)
     }
 }
 
 function factorial(x) {
-    if (x < 1.1) {
+    if (x == 0) {
         return 1
+    } else {
+        return x * factorial(x - 1)
     }
-    return x * factorial(x - 1)
 }
 
 function looper() {
     def a
     a = 3
     for (a = 1; a <= 10; a = a + 1) {
-        print("factorial "), print(factorial(a))
-        print(" fibon "), print(fibon(a))
-        print("\n")
+        print("factorial ", factorial(a), " ")
+        print("fibon ", fibon(a), "\n")
     }
 }
 
@@ -72,34 +70,54 @@ function isprime(n) {
     if (n == 2) {
         return 1
     }
-    if (mod(n, 2) < 1) {
+    if (mod(n, 2) == 0) {
         return 0
-    }
-    def i
-    for (i = 3; i * i <= n; i = i + 2) {
-        if (mod(n, i) < 1) {
-            return 0
+    } else {
+        def i
+        for (i = 3; i * i <= n; i = i + 2) {
+            if (mod(n, i) == 0) {
+                return 0
+            }
         }
+        return 1
     }
-    return 1
 }
 
 function primes() {
     def i
     for (i = 1; i <= 100; i = i + 1) {
-        if (isprime(i) > 0) {
-            print(i)
-            print("\n")
+        if (isprime(i)) {
+            print(i, "\n")
         }
     }
 }
 
 looper()
-print(1)
-print(2)
-print(3)
-return
-print(5)
-print(6)
-
 primes()
+
+function return() {
+
+}
+
+function flag() {
+    function half(h, reverse) {
+        def i, s
+        s = ""
+        for (i = 1; i <= h; i = i + 1) {
+            def j, max
+            if (reverse) max = h - i + 1
+            if (reverse == 0) max = i
+            for (j = 1; j <= max; j = j + 1) s = s + "*"
+            s = s + "\n"
+        }
+        return s
+    }
+    def c, i, height
+    height = 15
+    for (c = 1; c <= 2; c = c + 1) {
+        print(half(height / 2, 0, "ducking duss garbage"))
+        print(half(height / 2 - 1, 1, ""))
+    }
+}
+
+flag()

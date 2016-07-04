@@ -4,8 +4,6 @@ package parser;
 //1. function parameters name validity
 //2. for / if single statement return
 //3. typing
-//4. semantic error check
-//5. else
 
 import java.util.*;
 import java.io.*;
@@ -41,6 +39,7 @@ class Parser {
             boolean fxn = false;
             if (factor.charAt(0) == '\"') {
                 type = Node.Type.CONSTANT_STRING;
+                factor = factor.substring(1, factor.length() - 1);
             } else if (NumberUtils.isDigits(factor)) {
                 type = Node.Type.CONSTANT_INTEGER;
             } else if (NumberUtils.isNumber(factor)) {
@@ -134,7 +133,7 @@ class Parser {
                 nxt = this.lexer.next();
                 this.lexer.undo();
                 if (!nxt.equals("}") && !nxt.equals("\n")) {
-                    System.out.println("error: expected newline not found");
+                    System.out.println("error: expected newline not found, obtained " + nxt);
                     return null;
                 }
             }
@@ -261,6 +260,30 @@ class Parser {
         Node result = new Node(Node.Type.IF);
         result.children.add(cond);
         result.children.add(code);
+
+        //now check for else block
+        boolean ate = false;
+        while (!this.lexer.finished()) {
+            if (!this.lexer.next().equals("\n")) {
+                this.lexer.undo();
+                break;
+            }
+            ate = true;
+        }
+        if (!this.lexer.finished()) {
+            s = this.lexer.next();
+            if (!s.equals("else")) {
+                this.lexer.undo();
+                if (ate) this.lexer.undo(); //undo newline
+            } else {
+                Node r = interpreter();
+                if (r == null) {
+                    System.out.println("else block error");
+                    return null;
+                }
+                result.children.add(r);
+            }
+        }
         return result;
     }
 
@@ -366,7 +389,9 @@ class Parser {
     private Node interpreter() {
         String lex = this.lexer.next();
         this.lexer.undo();
-        if (lex.equals("def")) {
+        if (lex.equals("{")) {
+            return matchedBlock();
+        } else if (lex.equals("def")) {
             return def();
         } else if (lex.equals("return")) {
             return returnStmt();
@@ -533,8 +558,9 @@ class Parser {
                 if (syntax_tree != null) {
                     System.out.println("Parse successful");
                     //syntax_tree.print();
-                    Return r = syntax_tree.evaluate(runinfo, fxnlist);
-                    if (r == null) {
+                    if (Node.eval(syntax_tree, runinfo, fxnlist)) {
+                        System.out.println("successfully interpreted");
+                    } else {
                         System.out.println("interpretation failed");
                     }
                 } else {
@@ -566,17 +592,18 @@ class Parser {
             while (!this.lexer.finished()) {
                 s += (s.length() > 0 ? ", " : "") + this.lexer.next();
             }
-            System.out.println(s);
+            //System.out.println(s);
             this.lexer.reset();
             if (this.lexer.finished()) continue;
             Node syntax_tree = this.interpreter();
             if (syntax_tree != null) {
                 System.out.println("Parse successful");
                 //syntax_tree.print();
-                Return r = syntax_tree.evaluate(runinfo, fxnlist);
-                if (r == null) {
-                    System.out.println("some error occurred");
-                } else System.out.println("successfully interpreted");
+                if (Node.eval(syntax_tree, runinfo, fxnlist)) {
+                    System.out.println("successfully interpreted");
+                } else {
+                    System.out.println("interpretation failed");
+                }
             } else {
                 System.out.println("Parse failed");
             }

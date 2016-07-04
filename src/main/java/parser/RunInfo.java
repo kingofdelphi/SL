@@ -104,7 +104,7 @@ class RunInfo {
             //sl.add(new Scope());
             sl.get(sl.size() - 1).variables.put(var, value);
         } else {
-            System.out.println("created variable " + var);
+            //System.out.println("created variable " + var);
             global.get(global.size() - 1).variables.put(var, value);
         }
     }
