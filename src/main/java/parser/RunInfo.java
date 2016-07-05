@@ -27,19 +27,25 @@ class Return {
         this.value = null;
     }
 
-    Rvalue eval(RunInfo r) {
-        if (name == null && value == null) return null; //void return type
-        if (name == null) return value; //rvalue
-        return r.getValue(name); //lvalue
-    }
+    //for now, unused function
+    //Rvalue eval(RunInfo r) {
+    //    if (name == null && value == null) return null; //void return type
+    //    if (name == null) return value; //rvalue
+    //    return r.getValue(name); //lvalue
+    //}
 
 }
 
 class Rvalue {
     public String type;
     public String data;
+    public HashMap<Integer, Rvalue> list;
+
     Rvalue(String type) {
         this.type = type;
+        if (type.equals("list")) {
+            list = new HashMap<Integer, Rvalue>();
+        }
     }
 }
 

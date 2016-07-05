@@ -18,25 +18,52 @@ class Parser {
     private Node factor() {
         if (this.lexer.finished()) return null;
         String factor = this.lexer.next();
+        Node result;
         if (factor.equals("+") || factor.equals("-")) { //unary operator
             Node r = new Node(Node.Type.UNARY_OPERATOR);
             r.lexeme = factor;
             r.children.add(factor());
             return r;
         } else if (factor.equals("(")) {
-            Node r =  goodSolver(0);
-            if (r == null) return null;
+            result =  goodSolver(0);
+            if (result == null) return null;
             if (this.lexer.finished() || !this.lexer.next().equals(")")) {
                 System.out.println("missing )");
                 return null;
             }
-            return r;
+        } else if (factor.equals("[")) {
+            System.out.println("array decl");
+            result = new Node(Node.Type.LIST);
+
+            boolean ok = false;
+            boolean first = true;
+
+            while (!this.lexer.finished()) {
+                if (this.lexer.next().equals("]")) {
+                    ok = true;
+                    break;
+                } else this.lexer.undo();
+
+                if (!first && !this.lexer.next().equals(",")) {
+                    System.out.println("expected , not found");
+                    return null;
+                }
+
+                Node exp = goodSolver(1);
+                result.children.add(exp);
+                first = false;
+            }
+
+            if (!ok) {
+                System.out.println("error parsing list, closing brace not found");
+                return null;
+            }
+
         } else if (this.lexer.alphabets.contains(factor)) {
             System.out.println("expected identifier or constant but obtained " + factor);
             return null;
         } else { //factor is identifier
             Node.Type type;
-            boolean fxn = false;
             if (factor.charAt(0) == '\"') {
                 type = Node.Type.CONSTANT_STRING;
                 factor = factor.substring(1, factor.length() - 1);
@@ -46,50 +73,75 @@ class Parser {
                 type = Node.Type.CONSTANT_FLOAT;
             } else {
                 type = Node.Type.IDENTIFIER;
-                if (!this.lexer.finished()) {
-                    String nxt = this.lexer.next();
-                    this.lexer.undo();
-                    if (nxt.equals("(")) { // a function call
-                        fxn = true;
+            }
+            result = new Node(type);
+            result.lexeme = factor;
+        }
+
+        //now check any function call () or list indexing []
+        boolean fxn = false;
+        boolean index = false;
+        if (!this.lexer.finished()) {
+            String nxt = this.lexer.next();
+            this.lexer.undo();
+            if (nxt.equals("(")) { // a function call
+                fxn = true;
+            } else if (nxt.equals("[")) {
+                index = true;
+            }
+        }
+        //todo: ()[]()()[][]
+        if (index) {
+            while (!this.lexer.finished()) {
+                if (this.lexer.next().equals("[")) {
+                    //System.out.println("deref ");
+                    Node ind = goodSolver(0);
+                    if (ind == null) return null;
+                    if (this.lexer.finished() || !this.lexer.next().equals("]")) {
+                        System.out.println("expected ] not found");
+                        return null;
                     }
+                    Node n = new Node(Node.Type.INDEX);
+                    n.children.add(result);
+                    n.children.add(ind);
+                    result = n;
+                } else {
+                    this.lexer.undo();
+                    break;
                 }
             }
-            Node r = new Node(type);
-            r.lexeme = factor;
-            if (fxn) {
-                this.lexer.next();
-                Node res = new Node(Node.Type.FUNCTION_CALL);
-                res.lexeme = factor;
-                boolean first = true;
+        } else if (fxn) {
+            this.lexer.next();
+            result = new Node(Node.Type.FUNCTION_CALL);
+            result.lexeme = factor;
+            boolean first = true;
 
-                while (!this.lexer.finished()) {
-                    String nxt = this.lexer.next();
-                    this.lexer.undo();
-                    if (nxt.equals(")")) { // 
-                        break;
-                    }
-                    if (!first && !this.lexer.next().equals(",")) {
-                        System.out.println("expected comma not found");
-                        return null;
-                    }
-                    Node n = goodSolver(1);
-                    if (n == null) {
-                        System.out.println("error parsing function argument");
-                        return null;
-                    }
-                    res.children.add(n);
-                    first = false;
+            while (!this.lexer.finished()) {
+                String nxt = this.lexer.next();
+                this.lexer.undo();
+                if (nxt.equals(")")) { // 
+                    break;
                 }
-
-                if (this.lexer.finished() || !this.lexer.next().equals(")")) {
-                    System.out.println("error: function invoke no closing brace");
+                if (!first && !this.lexer.next().equals(",")) {
+                    System.out.println("expected comma not found");
                     return null;
                 }
-
-                r = res;
+                Node n = goodSolver(1);
+                if (n == null) {
+                    System.out.println("error parsing function argument");
+                    return null;
+                }
+                result.children.add(n);
+                first = false;
             }
-            return r;
+
+            if (this.lexer.finished() || !this.lexer.next().equals(")")) {
+                System.out.println("error: function invoke no closing brace");
+                return null;
+            }
+
         }
+        return result;
     }
 
     private Node matchedBlock() {
@@ -357,15 +409,11 @@ class Parser {
 
     private Node def() {
         if (lexer.finished() || !lexer.next().equals("def")) return null;
-        if (this.lexer.finished()) {
-            System.out.println("error, empty def");
-            return null;
-        }
 
         Node res = new Node(Node.Type.VAR_DEF);
         res.lexeme = "def"; 
         boolean first = true;
-
+        boolean empty = true;
         while (!this.lexer.finished()) {
             String s = this.lexer.next();
             this.lexer.undo();
@@ -376,11 +424,17 @@ class Parser {
                 System.out.println("expected comma not found");
                 return null;
             }
-            //todo: perform parameter name validity
+            String id = this.lexer.next();
+            //todo: perform identiifer validity
             Node n = new Node(Node.Type.IDENTIFIER);
-            n.lexeme = this.lexer.next();
+            n.lexeme = id;
             res.children.add(n);
             first = false;
+            empty = false;
+        }
+        if (empty) {
+            System.out.println("empty def");
+            return null;
         }
         return res;
     }
@@ -442,6 +496,7 @@ class Parser {
         leveldel.get(0).add(")");
         leveldel.get(0).add("\n");
         leveldel.get(0).add(";");
+        leveldel.get(0).add("]"); //for arrays and indices
 
         for (int i = 1; i < levels; ++i) {
             leveldel.get(i).addAll(levelsep.get(i - 1));

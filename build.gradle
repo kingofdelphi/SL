@@ -16,4 +16,21 @@ task wrapper(type: Wrapper) {
 
 run {
     standardInput = System.in
+
+}
+
+task myjar(type : Jar) {
+    manifest {
+        attributes 'Main-Class': mainClassName
+    }
+
+    baseName = "scripter"
+
+    from { 
+        configurations.compile.collect { 
+            it.isDirectory() ? it : zipTree(it) 
+        } 
+    }
+
+    with jar
 }

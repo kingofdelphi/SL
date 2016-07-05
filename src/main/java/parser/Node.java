@@ -17,7 +17,7 @@ public class Node {
     public enum Type {
         BINARY_OPERATOR, IDENTIFIER, CONSTANT_INTEGER, CONSTANT_FLOAT, UNARY_OPERATOR, COMMA,
         ASSIGN, IF, BLOCK, FOR, CONSTANT_STRING, FUNCTION_CREATE, FUNCTION_PARAM, FUNCTION_CALL, VAR_DEF,
-        RETURN
+        RETURN, LIST, INDEX
     }
 
     static boolean isArith(String op) {
@@ -89,7 +89,41 @@ public class Node {
     }
 
     public Return evaluate(RunInfo vars, HashMap<String, Node> fxnlist) throws RunException {
-        if (this.type == Type.RETURN) {
+        if (this.type == Type.INDEX) {
+            //System.out.println("indexing a list");
+            Rvalue res = new Rvalue("list");
+            Rvalue index = this.children.get(1).evaluate(vars, fxnlist).value;
+            if (index == null) {
+                throw new RunException("indexing using void");
+            }
+            if (!index.type.equals("integer")) {
+                throw new RunException("invalid index");
+            } else {
+                Rvalue val = this.children.get(0).evaluate(vars, fxnlist).value;
+                if (val == null) {
+                    throw new RunException("how did this happen?");
+                }
+                if (!val.type.equals("list")) {
+                    throw new RunException("cannot index " + val.type);
+                }
+                int ind = Integer.parseInt(index.data);
+                if (ind >= val.list.size()) {
+                    throw new RunException("list index out of bounds");
+                }
+                return new Return(null, val.list.get(ind));
+            }
+        } else if (this.type == Type.LIST) {
+            //System.out.println("creating a list");
+            Rvalue res = new Rvalue("list");
+            for (int i = 0; i < this.children.size(); ++i) {
+                Return val = this.children.get(i).evaluate(vars, fxnlist);
+                if (val.value == null) {
+                    throw new RunException("attempt to store void in a list");
+                }
+                res.list.put(i, val.value);
+            }
+            return new Return(null, res);
+        } else if (this.type == Type.RETURN) {
             if (this.children.size() > 0) {
                 Return val = this.children.get(0).evaluate(vars, fxnlist);
                 return new Return("return", val.value);
@@ -176,6 +210,7 @@ public class Node {
             else if (op1.value.type.equals("float") && op2.value.type.equals("integer")) dtype = "float";
             else if (op1.value.type.equals("float") && op2.value.type.equals("float")) dtype = "float";
             else if (op1.value.type.equals("string") && op2.value.type.equals("string")) dtype = "string";
+            else if (op1.value.type.equals("list") && op2.value.type.equals("list")) dtype = "list";
             else {
                 throw new RunException("operation " + this.lexeme + " on unmatched types ");
             }
@@ -199,6 +234,16 @@ public class Node {
                         rval.data = a + b;
                     } else {
                         throw new RunException("unsupported operation " + this.lexeme + " on string");
+                    }
+                } else if (dtype.equals("list")) {
+                    if (this.lexeme.equals("+")) {
+                        Rvalue a = op1.value;
+                        Rvalue b = op2.value;
+                        int c = a.list.size();
+                        for (int i = 0; i < a.list.size(); ++i) rval.list.put(i, a.list.get(i));
+                        for (int i = 0; i < b.list.size(); ++i) rval.list.put(c + i, b.list.get(i));
+                    } else {
+                        throw new RunException("unsupported operation " + this.lexeme + " on list");
                     }
                 } else {
                     throw new RunException("unsupported type " + dtype);
@@ -296,7 +341,20 @@ public class Node {
             }
             return ret;
         } else if (this.type == Type.FUNCTION_CALL) {
-            if (this.lexeme.equals("print")) {
+            if (this.lexeme.equals("len")) {
+                //inbuilt function call
+                //todo: verify argument size
+                Rvalue lst = this.children.get(0).evaluate(vars, fxnlist).value;
+                if (lst == null) {
+                    throw new RunException("evaluation of void expression");
+                }
+                if (!lst.type.equals("list")) {
+                    throw new RunException("cannot print length of " + lst.type);
+                }
+                Rvalue r = new Rvalue("integer");
+                r.data = String.valueOf(lst.list.size());
+                return new Return(null, r);
+            } else if (this.lexeme.equals("print")) {
                 //inbuilt function call
                 //todo: verify argument size
                 String res = "";
@@ -304,6 +362,9 @@ public class Node {
                     Rvalue ev = this.children.get(i).evaluate(vars, fxnlist).value;
                     if (ev == null) {
                         throw new RunException("evaluation of void expression");
+                    }
+                    if (ev.type.equals("list")) {
+                        throw new RunException("cannot print list");
                     }
                     res += ev.data;
                 }
@@ -342,6 +403,8 @@ public class Node {
                 vars.popFunctionScope();
                 return ret;
             }
-        } else return new Return();
+        } else {
+            throw new RunException("evaluation not supported for node type " + this.type);
+        }
     }
 }

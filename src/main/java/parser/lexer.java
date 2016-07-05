@@ -39,6 +39,8 @@ class Lexer {
         alphabets.add(";");
         alphabets.add("\n");
         alphabets.add("\"");
+        alphabets.add("[");
+        alphabets.add("]");
     }
 
     //reset the current lexeme position

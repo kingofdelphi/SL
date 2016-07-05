@@ -122,4 +122,30 @@ main()
 function hak(b) {
 }
 
-hak(flag())
+def a
+a = "ok"
+
+print("all right\n", a + "\n")
+def a
+
+a = [[1,2], [3,4], [23.02, "myself "], 4, [8, 32], 16]
+
+print(a[1][0], a[2][1], " in\n")
+def b
+b = []
+
+for (a = 0; a < 5; a = a + 1) {
+    def s, i
+    s = ""
+    for (i = 0; i <= a; i = i + 1) {
+        s = s + "#"
+    }
+    b = b + [s + "\n"]
+    print(b[a])
+}
+
+for (a = 4; a >= 0; a = a - 1) {
+    print(b[a])
+}
+
+print(a[0])
