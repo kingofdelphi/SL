@@ -122,6 +122,7 @@ class RunInfo {
         Scope sc = getScope(var);
         if (sc != null) {
             sc.variables.put(var, value);
+            //System.out.println("variable " + var + " set to value " + value.data);
         } else {
             System.out.println("error, undefined variable assigned");
         }

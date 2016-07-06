@@ -84,6 +84,9 @@ public class Node {
         } catch (RunException e) {
             System.out.println("Error: " + e.getMessage());
             ok = false;
+            //clear any remaining call stacks
+            //that were not cleared due to the exception that occurred
+            while (vars.callstack.size() > 0) vars.popFunctionScope();
         }
         return ok;
     }
@@ -155,17 +158,31 @@ public class Node {
             }
             return rv;
         } else if (this.type == Type.ASSIGN) {
-            String name = this.children.get(0).lexeme;
-            if (!vars.variableExists(name)) {
-                throw new RunException("undefined variable " + name);
+            if (this.children.get(0).type == Type.IDENTIFIER) {
+                String name = this.children.get(0).lexeme;
+                if (!vars.variableExists(name)) {
+                    throw new RunException("undefined variable " + name);
+                }
+                Return rvalue = this.children.get(1).evaluate(vars, fxnlist);
+                if (rvalue.value == null) {
+                    throw new RunException("assignment of void expression");
+                }
+                //System.out.println("variable assign " + this.children.get(0).lexeme);
+                vars.setVariable(this.children.get(0).lexeme, rvalue.value);
+                return rvalue;
+            } else if (this.children.get(0).type == Type.INDEX) {
+                Return lv = this.children.get(0).evaluate(vars, fxnlist);
+                if (lv.value == null) {
+                    throw new RunException("error evaluating index element");
+                }
+                Return rv = this.children.get(1).evaluate(vars, fxnlist);
+                lv.value.type = rv.value.type;
+                lv.value.data = rv.value.data;
+                lv.value.list = rv.value.list;
+                return lv;
+            } else {
+                throw new RunException("assign of such type not supported");
             }
-            Return rvalue = this.children.get(1).evaluate(vars, fxnlist);
-            if (rvalue.value == null) {
-                throw new RunException("assignment of void expression");
-            }
-            //System.out.println("variable assign " + this.children.get(0).lexeme);
-            vars.setVariable(this.children.get(0).lexeme, rvalue.value);
-            return rvalue;
         } else if (this.type == Type.COMMA) {
             Return result = null;
             for (Node i : children) {
@@ -341,7 +358,15 @@ public class Node {
             }
             return ret;
         } else if (this.type == Type.FUNCTION_CALL) {
-            if (this.lexeme.equals("len")) {
+            if (this.lexeme.equals("typeof")) {
+                //inbuilt function call
+                //todo: verify argument size
+                Rvalue val = this.children.get(0).evaluate(vars, fxnlist).value;
+                Rvalue r = new Rvalue("string");
+                if (val == null) r.data = "void";
+                else r.data = val.type;
+                return new Return(null, r);
+            } else if (this.lexeme.equals("len")) {
                 //inbuilt function call
                 //todo: verify argument size
                 Rvalue lst = this.children.get(0).evaluate(vars, fxnlist).value;
@@ -372,6 +397,9 @@ public class Node {
                 return new Return();
             } else {
                 //System.out.println("function call " + this.lexeme);
+                if (!fxnlist.containsKey(this.lexeme)) {
+                    throw new RunException("undefined function " + this.lexeme);
+                }
                 Node function = fxnlist.get(this.lexeme);
                 int N = function.children.size();
                 RunInfo.Scope sc = new RunInfo.Scope();

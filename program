@@ -126,26 +126,47 @@ def a
 a = "ok"
 
 print("all right\n", a + "\n")
-def a
+def a, x
 
-a = [[1,2], [3,4], [23.02, "myself "], 4, [8, 32], 16]
+x = a = [[1,2], [3,4], [23.02, "myself "], 4, [8, 32], 16]
 
 print(a[1][0], a[2][1], " in\n")
-def b
-b = []
 
-for (a = 0; a < 5; a = a + 1) {
-    def s, i
-    s = ""
-    for (i = 0; i <= a; i = i + 1) {
-        s = s + "#"
-    }
-    b = b + [s + "\n"]
-    print(b[a])
+def b
+
+b = ["*"]
+
+print(b[0] + "\n")
+
+for (a = 1; a < 5; a = a + 1) {
+    b = b + [b[a - 1] + "*"]
+    print(b[a] + "\n")
 }
 
 for (a = 4; a >= 0; a = a - 1) {
-    print(b[a])
+    print(b[a] + "\n")
 }
 
-print(a[0])
+function printr(a) {
+    def i
+    print("[")
+    for (i = 0; i < len(a); i = i + 1) {
+        if (i > 0) print(", ")
+        if (typeof(a[i]) == "list") printr(a[i]) 
+        else print(a[i])
+    }
+    print("]")
+}
+
+function flat(a) {
+    printr(a)
+    print("\n")
+}
+
+flat(x)
+def a
+a = [1, 2, [3, 4, [6, 7, 8], 9], 2]
+[1, 2][0] = 3
+flat(a)
+a[2] = [3, 4]
+flat(a)

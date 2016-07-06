@@ -32,7 +32,7 @@ class Parser {
                 return null;
             }
         } else if (factor.equals("[")) {
-            System.out.println("array decl");
+            //System.out.println("array decl");
             result = new Node(Node.Type.LIST);
 
             boolean ok = false;
@@ -539,12 +539,6 @@ class Parser {
                 if (!donext) {
                     System.out.println("invalid input");
                     return null;
-                }
-                if (level == 1) { //assignment
-                    if (result.type != Node.Type.IDENTIFIER) {
-                        System.out.println("error: rvalue where lvalue was expected " + next);
-                        return null;
-                    }
                 }
                 Node n;
 
