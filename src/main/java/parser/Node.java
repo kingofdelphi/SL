@@ -119,11 +119,16 @@ public class Node {
             //System.out.println("creating a list");
             Rvalue res = new Rvalue("list");
             for (int i = 0; i < this.children.size(); ++i) {
-                Return val = this.children.get(i).evaluate(vars, fxnlist);
-                if (val.value == null) {
+                Rvalue val = this.children.get(i).evaluate(vars, fxnlist).value;
+                if (val == null) {
                     throw new RunException("attempt to store void in a list");
                 }
-                res.list.put(i, val.value);
+                //since evaluation always returns reference to the object being evaluated
+                //we need to clone the value
+                Rvalue rv = new Rvalue(val.type);
+                rv.data = val.data;
+                rv.list = val.list;
+                res.list.put(i, rv);
             }
             return new Return(null, res);
         } else if (this.type == Type.RETURN) {
@@ -168,8 +173,11 @@ public class Node {
                     throw new RunException("assignment of void expression");
                 }
                 //System.out.println("variable assign " + this.children.get(0).lexeme);
-                vars.setVariable(this.children.get(0).lexeme, rvalue.value);
-                return rvalue;
+                Rvalue rv = new Rvalue(rvalue.value.type);
+                rv.data = rvalue.value.data;
+                rv.list = rvalue.value.list;
+                vars.setVariable(this.children.get(0).lexeme, rv);
+                return new Return(null, rv);
             } else if (this.children.get(0).type == Type.INDEX) {
                 Return lv = this.children.get(0).evaluate(vars, fxnlist);
                 if (lv.value == null) {
@@ -315,7 +323,11 @@ public class Node {
                 a = -a;
             }
             Rvalue rval = new Rvalue(op1.value.type);
-            rval.data = a.toString();
+            if (op1.value.type.equals("float")) {
+                rval.data = a.toString();
+            } else if (op1.value.type.equals("integer")) {
+                rval.data = String.valueOf(a.intValue());
+            }
             return new Return(null, rval);
         } else if (this.type == Type.BLOCK) { //must be in
             vars.addScope(new RunInfo.Scope());

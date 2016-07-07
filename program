@@ -128,9 +128,6 @@ a = "ok"
 print("all right\n", a + "\n")
 def a, x
 
-x = a = [[1,2], [3,4], [23.02, "myself "], 4, [8, 32], 16]
-
-print(a[1][0], a[2][1], " in\n")
 
 def b
 
@@ -163,10 +160,47 @@ function flat(a) {
     print("\n")
 }
 
-flat(x)
 def a
 a = [1, 2, [3, 4, [6, 7, 8], 9], 2]
 [1, 2][0] = 3
 flat(a)
 a[2] = [3, 4]
 flat(a)
+
+a = 1, 2
+
+x = a = [[1,2], [3,4], [23.02, "myself "], 4, [8, 32], 16]
+flat(x)
+
+flat(x[0])
+x[0] = 5
+flat(a)
+
+print(a[1][0], a[2][1], " in\n")
+
+function sorter(a) {
+    def N
+    N = len(a)
+    def i
+    for (i = 0; i < N; i = i + 1) {
+        def j, m
+        m = i
+        for (j = i + 1; j < N; j = j + 1) {
+            if (a[j] < a[m]) m = j
+        }
+        def tmp
+        tmp = [a[m], a[i]]
+        a[i] = tmp[0], a[m] = tmp[1]
+        flat(a)
+    }
+    flat(a)
+}
+
+sorter(["e", "d", "c", "b", "a"])
+def a
+a = [1, 2]
+def tmp
+tmp = [a[0], a[1]]
+tmp[0] = 5
+flat(a)
+flat(tmp)

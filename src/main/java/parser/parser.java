@@ -3,7 +3,13 @@ package parser;
 //Todo Next
 //1. function parameters name validity
 //2. for / if single statement return
-//3. typing
+//3. string indexing
+
+//notes:
+//evaluation always returns reference
+//list clones the elements during its creation
+//todo:clone arguments for function
+//todo:clone return values
 
 import java.util.*;
 import java.io.*;
@@ -645,7 +651,7 @@ class Parser {
             this.lexer.reset();
             if (this.lexer.finished()) continue;
             Node syntax_tree = this.interpreter();
-            if (syntax_tree != null) {
+            if (this.lexer.finished() && syntax_tree != null) {
                 System.out.println("Parse successful");
                 //syntax_tree.print();
                 if (Node.eval(syntax_tree, runinfo, fxnlist)) {
@@ -654,6 +660,9 @@ class Parser {
                     System.out.println("interpretation failed");
                 }
             } else {
+                if (!this.lexer.finished()) {
+                    System.out.println("extra input");
+                }
                 System.out.println("Parse failed");
             }
         }
